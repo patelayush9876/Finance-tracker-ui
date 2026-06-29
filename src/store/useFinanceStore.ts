@@ -305,7 +305,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   fetchInvestments: async () => {
     set({ loading: true, error: null });
     try {
-      const response: any = await client.get('/investments', { params: { limit: 10000 } });
+      const response: any = await client.get('/investments', { params: { limit: 100 } });
       const items = response.items || [];
       const investments = items.map((i: any) => {
         const amountInvested = Number(i.amountInvested);
