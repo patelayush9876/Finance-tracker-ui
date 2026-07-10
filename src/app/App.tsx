@@ -21,6 +21,7 @@ import GoalsPage from "./components/GoalsPage";
 import AnalyticsPage from "./components/AnalyticsPage";
 import SettingsPage from "./components/SettingsPage";
 import CheckoutPage from "./components/CheckoutPage";
+import AdminPortalPage from "./components/AdminPortalPage";
 
 export default function App() {
   const [page, setPage] = useState<Page>("landing");
@@ -161,6 +162,7 @@ export default function App() {
       case "analytics": return <AnalyticsPage />;
       case "settings": return <SettingsPage darkMode={darkMode} setDarkMode={setDarkMode} onNavigate={navigate} onSelectPlan={setSelectedPlan} />;
       case "checkout": return <CheckoutPage onNavigate={navigate} selectedPlan={selectedPlan || undefined} />;
+      case "admin": return <AdminPortalPage />;
       default: return <DashboardPage onNavigate={navigate} />;
     }
   };
@@ -187,7 +189,7 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
       </AppLayout>
-      <Toaster richColors position="top-right" theme={darkMode ? "dark" : "light"} />
+      <Toaster richColors position="bottom-right" theme={darkMode ? "dark" : "light"} />
     </div>
   );
 }

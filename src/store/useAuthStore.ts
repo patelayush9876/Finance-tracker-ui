@@ -9,6 +9,7 @@ interface User {
   username?: string;
   isEmailVerified: boolean;
   settings?: UserSettings;
+  role?: string;
 }
 
 interface UserSettings {

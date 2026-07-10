@@ -91,6 +91,7 @@ export const NAV_ITEMS = [
   { id: "goals", label: "Goals", icon: Target },
   { id: "analytics", label: "Analytics", icon: BarChart2 },
   { id: "settings", label: "Settings", icon: Settings },
+  { id: "admin", label: "Admin Portal", icon: Shield },
 ];
 
 export const catColors: { [key: string]: string } = {

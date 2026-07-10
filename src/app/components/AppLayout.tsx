@@ -32,6 +32,13 @@ export default function AppLayout({ children, currentPage, onNavigate, darkMode,
   const userInitials = user ? `${user.firstName[0] || ""}${user.lastName?.[0] || ""}`.toUpperCase() : "US";
   const userFullName = user ? `${user.firstName} ${user.lastName || ""}`.trim() : "User";
 
+  const filteredNavItems = NAV_ITEMS.filter(item => {
+    if (item.id === "admin") {
+      return user?.role === "ADMIN";
+    }
+    return true;
+  });
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Desktop Sidebar */}
@@ -47,7 +54,7 @@ export default function AppLayout({ children, currentPage, onNavigate, darkMode,
         </div>
 
         <nav className="flex-1 px-2 py-4 space-y-1.5 overflow-y-auto">
-          {NAV_ITEMS.map(item => {
+          {filteredNavItems.map(item => {
             const active = currentPage === item.id;
             return (
               <button
@@ -126,7 +133,7 @@ export default function AppLayout({ children, currentPage, onNavigate, darkMode,
                 <button onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-lg hover:bg-sidebar-accent"><X size={16} className="text-sidebar-foreground" /></button>
               </div>
               <nav className="flex-1 px-2 py-4 space-y-0.5">
-                {NAV_ITEMS.map(item => {
+                {filteredNavItems.map(item => {
                   const active = currentPage === item.id;
                   return (
                     <button key={item.id} onClick={() => { onNavigate(item.id as Page); setSidebarOpen(false); }}
