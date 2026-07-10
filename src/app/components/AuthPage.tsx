@@ -159,7 +159,7 @@ export default function AuthPage({ onBack, onAuth }: { onBack: () => void; onAut
               <h1 className="text-2xl font-bold text-foreground mb-1">Create account</h1>
               <p className="text-sm text-muted-foreground mb-8">Start your financial journey today</p>
               <div className="space-y-4">
-                <Input label="Full name" icon={User} placeholder="Rahul Sharma" value={name} onChange={e => setName(e.target.value)} />
+                <Input label="Full name" icon={User} placeholder="Your name here" value={name} onChange={e => setName(e.target.value)} />
                 <Input label="Email address" type="email" icon={Mail} placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
                 <div className="relative">
                   <Lock size={15} className="absolute left-3 top-9 text-muted-foreground" />

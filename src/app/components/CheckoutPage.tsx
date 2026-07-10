@@ -156,7 +156,7 @@ export default function CheckoutPage({ onNavigate, selectedPlan: initialPlan }: 
               <Input
                 label="Cardholder Name"
                 icon={User}
-                placeholder="Rahul Sharma"
+                placeholder="Your name here"
                 value={cardName}
                 onChange={e => setCardName(e.target.value)}
                 disabled={loading}
