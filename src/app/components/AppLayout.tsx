@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   TrendingUp, LogOut, Menu, X, Bell, ChevronRight,
   Sun, Moon, Home, CreditCard, Briefcase, Settings
@@ -45,7 +46,7 @@ export default function AppLayout({ children, currentPage, onNavigate, darkMode,
           {!collapsed && <span className="text-base font-bold text-sidebar-foreground" style={{ fontFamily: "Plus Jakarta Sans, sans-serif" }}>FinTrack</span>}
         </div>
 
-        <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 px-2 py-4 space-y-1.5 overflow-y-auto">
           {NAV_ITEMS.map(item => {
             const active = currentPage === item.id;
             return (
@@ -53,17 +54,26 @@ export default function AppLayout({ children, currentPage, onNavigate, darkMode,
                 key={item.id}
                 onClick={() => onNavigate(item.id as Page)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all relative",
                   active
-                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-sm"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50",
                   collapsed && "justify-center"
                 )}
                 title={collapsed ? item.label : undefined}
               >
-                <item.icon size={17} className={cn(active && "text-emerald-500")} />
-                {!collapsed && <span>{item.label}</span>}
-                {!collapsed && active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                {active && (
+                  <motion.div
+                    layoutId="activeNavBG"
+                    className="absolute inset-0 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-xl"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-3 w-full">
+                  <item.icon size={17} className={cn(active && "text-emerald-500")} />
+                  {!collapsed && <span>{item.label}</span>}
+                  {!collapsed && active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                </span>
               </button>
             );
           })}
@@ -91,32 +101,46 @@ export default function AppLayout({ children, currentPage, onNavigate, darkMode,
       </aside>
 
       {/* Mobile Drawer */}
-      {sidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-            <div className="flex items-center justify-between px-4 py-5 border-b border-sidebar-border">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center"><TrendingUp size={15} className="text-white" /></div>
-                <span className="font-bold text-sidebar-foreground">FinTrack</span>
+      <AnimatePresence>
+        {sidebarOpen && (
+          <div className="lg:hidden fixed inset-0 z-40">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setSidebarOpen(false)}
+            />
+            <motion.aside
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="absolute left-0 top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border flex flex-col"
+            >
+              <div className="flex items-center justify-between px-4 py-5 border-b border-sidebar-border">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center"><TrendingUp size={15} className="text-white" /></div>
+                  <span className="font-bold text-sidebar-foreground">FinTrack</span>
+                </div>
+                <button onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-lg hover:bg-sidebar-accent"><X size={16} className="text-sidebar-foreground" /></button>
               </div>
-              <button onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-lg hover:bg-sidebar-accent"><X size={16} className="text-sidebar-foreground" /></button>
-            </div>
-            <nav className="flex-1 px-2 py-4 space-y-0.5">
-              {NAV_ITEMS.map(item => {
-                const active = currentPage === item.id;
-                return (
-                  <button key={item.id} onClick={() => { onNavigate(item.id as Page); setSidebarOpen(false); }}
-                    className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all", active ? "bg-emerald-500/15 text-emerald-500" : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground")}>
-                    <item.icon size={17} />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </aside>
-        </div>
-      )}
+              <nav className="flex-1 px-2 py-4 space-y-0.5">
+                {NAV_ITEMS.map(item => {
+                  const active = currentPage === item.id;
+                  return (
+                    <button key={item.id} onClick={() => { onNavigate(item.id as Page); setSidebarOpen(false); }}
+                      className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all relative", active ? "text-emerald-500 font-semibold" : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground")}>
+                      <item.icon size={17} />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            </motion.aside>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -138,36 +162,44 @@ export default function AppLayout({ children, currentPage, onNavigate, darkMode,
                   <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-emerald-500 rounded-full" />
                 )}
               </button>
-              {notifOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-2xl shadow-xl z-[9999] overflow-hidden">
-                  <div className="px-4 py-3 border-b border-border flex justify-between items-center">
-                    <p className="font-semibold text-sm text-foreground">Notifications</p>
-                    {unreadNotifs.length > 0 && (
-                      <span className="text-[10px] bg-emerald-500/15 text-emerald-500 px-1.5 py-0.5 rounded-full font-bold">{unreadNotifs.length} new</span>
-                    )}
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {displayNotifs.length > 0 ? (
-                      displayNotifs.map((n) => (
-                        <div key={n.id} onClick={() => { if (!n.isRead) markNotificationRead(n.id); }}
-                          className={cn("flex items-start gap-3 px-4 py-3 hover:bg-muted transition-colors cursor-pointer border-b border-border last:border-0",
-                            !n.isRead && "bg-emerald-500/5")}>
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-emerald-500/20">
-                            <Bell size={13} className="text-emerald-500" />
+              <AnimatePresence>
+                {notifOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-2xl shadow-xl z-[9999] overflow-hidden origin-top-right"
+                  >
+                    <div className="px-4 py-3 border-b border-border flex justify-between items-center">
+                      <p className="font-semibold text-sm text-foreground">Notifications</p>
+                      {unreadNotifs.length > 0 && (
+                        <span className="text-[10px] bg-emerald-500/15 text-emerald-500 px-1.5 py-0.5 rounded-full font-bold">{unreadNotifs.length} new</span>
+                      )}
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {displayNotifs.length > 0 ? (
+                        displayNotifs.map((n) => (
+                          <div key={n.id} onClick={() => { if (!n.isRead) markNotificationRead(n.id); }}
+                            className={cn("flex items-start gap-3 px-4 py-3 hover:bg-muted transition-colors cursor-pointer border-b border-border last:border-0",
+                              !n.isRead && "bg-emerald-500/5")}>
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-emerald-500/20">
+                              <Bell size={13} className="text-emerald-500" />
+                            </div>
+                            <div className="flex-1">
+                              <p className={cn("text-xs text-foreground", !n.isRead ? "font-semibold" : "font-medium")}>{n.title}</p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">{n.message}</p>
+                              <p className="text-[9px] text-muted-foreground/60 mt-1">{fmtDate(n.createdAt)}</p>
+                            </div>
                           </div>
-                          <div className="flex-1">
-                            <p className={cn("text-xs text-foreground", !n.isRead ? "font-semibold" : "font-medium")}>{n.title}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{n.message}</p>
-                            <p className="text-[9px] text-muted-foreground/60 mt-1">{fmtDate(n.createdAt)}</p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
-                    )}
-                  </div>
-                </div>
-              )}
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-lg hover:bg-muted transition-colors">
               {darkMode ? <Sun size={17} className="text-foreground" /> : <Moon size={17} className="text-foreground" />}

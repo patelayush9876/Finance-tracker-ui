@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import { Plus, Briefcase, Wallet, TrendingUp, Activity, Calendar, DollarSign, Edit2, Trash2, Check } from "lucide-react";
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useFinanceStore } from "../../store/useFinanceStore";
@@ -265,14 +266,25 @@ export default function InvestmentsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {types.map(t => (
-          <button key={t} onClick={() => setActiveType(t)}
-            className={cn("px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all shrink-0",
-              activeType === t ? "bg-emerald-500 text-white shadow-sm" : "bg-card border border-border text-muted-foreground hover:text-foreground")}>
-            {t}
-          </button>
-        ))}
+      <div className="flex gap-2 overflow-x-auto pb-1 relative">
+        {types.map(t => {
+          const active = activeType === t;
+          return (
+            <button key={t} onClick={() => setActiveType(t)}
+              className={cn("px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all shrink-0 relative",
+                active ? "text-white font-semibold" : "bg-card border border-border text-muted-foreground hover:text-foreground")}
+            >
+              {active && (
+                <motion.div
+                  layoutId="investmentsTypeBG"
+                  className="absolute inset-0 bg-emerald-500 rounded-xl shadow-sm"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className="relative z-10">{t}</span>
+            </button>
+          );
+        })}
       </div>
 
       <Card className="overflow-hidden">

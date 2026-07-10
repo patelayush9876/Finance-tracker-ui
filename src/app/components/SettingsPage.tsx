@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import { Mail, Lock, User, Globe, Building2, CreditCard, TrendingUp, Wallet, Plus, Check, Moon, Sun } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useFinanceStore } from "../../store/useFinanceStore";
@@ -77,14 +78,25 @@ export default function SettingsPage({ darkMode, setDarkMode, onNavigate, onSele
   return (
     <div className="max-w-3xl space-y-4">
       {/* Tabs */}
-      <div className="flex gap-1 bg-muted p-1 rounded-xl overflow-x-auto">
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)}
-            className={cn("px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
-              activeTab === t.id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-            {t.label}
-          </button>
-        ))}
+      <div className="flex gap-1 bg-muted p-1 rounded-xl overflow-x-auto relative">
+        {tabs.map(t => {
+          const active = activeTab === t.id;
+          return (
+            <button key={t.id} onClick={() => setActiveTab(t.id)}
+              className={cn("px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all relative",
+                active ? "text-foreground font-semibold" : "text-muted-foreground hover:text-foreground")}
+            >
+              {active && (
+                <motion.div
+                  layoutId="settingsActiveTabBG"
+                  className="absolute inset-0 bg-card rounded-lg shadow-sm"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className="relative z-10">{t.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {activeTab === "profile" && (

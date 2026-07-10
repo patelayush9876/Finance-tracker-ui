@@ -6,6 +6,7 @@ import { Sun, Moon } from "lucide-react";
 import { cn } from "./components/shared/utils";
 import { Page } from "./components/shared/types";
 import { Toaster } from "sonner";
+import { motion, AnimatePresence } from "motion/react";
 
 
 // Page Components
@@ -173,7 +174,18 @@ export default function App() {
         setDarkMode={setDarkMode}
         onLogout={handleLogout}
       >
-        {pageContent()}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={page}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.15, ease: "easeInOut" }}
+            className="w-full"
+          >
+            {pageContent()}
+          </motion.div>
+        </AnimatePresence>
       </AppLayout>
       <Toaster richColors position="top-right" theme={darkMode ? "dark" : "light"} />
     </div>

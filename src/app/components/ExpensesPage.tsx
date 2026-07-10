@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import { Search, Plus, DollarSign, Calendar, Edit2, Trash2, Check, CreditCard } from "lucide-react";
 import { ComposedChart, Area, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useFinanceStore } from "../../store/useFinanceStore";
@@ -186,19 +187,29 @@ export default function ExpensesPage() {
           </div>
           
           {/* Timescale Selector */}
-          <div className="flex bg-muted/60 border border-border/50 p-0.5 rounded-lg self-start sm:self-auto">
-            {(["3M", "6M", "YTD"] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => setTimescale(t)}
-                className={cn(
-                  "px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-all",
-                  timescale === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {t}
-              </button>
-            ))}
+          <div className="flex bg-muted/60 border border-border/50 p-0.5 rounded-lg self-start sm:self-auto relative">
+            {(["3M", "6M", "YTD"] as const).map(t => {
+              const active = timescale === t;
+              return (
+                <button
+                  key={t}
+                  onClick={() => setTimescale(t)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-all relative",
+                    active ? "text-foreground font-extrabold" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {active && (
+                    <motion.div
+                      layoutId="expensesTimescaleBG"
+                      className="absolute inset-0 bg-card rounded-md shadow-sm"
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10">{t}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
         {filteredChartData.length > 0 ? (
@@ -242,8 +253,14 @@ export default function ExpensesPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(t => (
-                <tr key={t.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+              {filtered.map((t, idx) => (
+                <motion.tr
+                  key={t.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.15, delay: Math.min(idx * 0.02, 0.2) }}
+                  className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                >
                   <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{fmtDate(t.expenseDate)}</td>
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{t.title}</td>
                   <td className="px-4 py-3">
@@ -256,7 +273,7 @@ export default function ExpensesPage() {
                       <button onClick={() => handleDelete(t.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
                     </div>
                   </td>
-                </tr>
+                </motion.tr>
               ))}
             </tbody>
           </table>
