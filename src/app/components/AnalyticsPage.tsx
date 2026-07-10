@@ -45,7 +45,7 @@ export default function AnalyticsPage() {
   const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#6366f1", "#f97316", "#94a3b8"];
   const displaySpendingCats = categoryBreakdown && categoryBreakdown.length > 0
     ? categoryBreakdown.map((c, i) => ({
-        name: c.categoryName,
+        name: c.category || c.categoryName,
         amount: Number(c.amount),
         pct: Math.round(c.percentage),
         color: COLORS[i % COLORS.length]
@@ -66,18 +66,25 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
-        <Card className="p-5">
-          <h3 className="font-bold text-foreground mb-1">Cash Flow</h3>
-          <p className="text-xs text-muted-foreground mb-4">Monthly net (income − expenses)</p>
+        <Card className="p-6 bg-gradient-to-br from-card to-card/65 border border-border/80 shadow-md">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-bold text-foreground text-base tracking-tight">Cash Flow</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Monthly net (income − expenses)</p>
+            </div>
+            <Badge color="emerald">Cash Flow</Badge>
+          </div>
           {cashFlow.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={cashFlow} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <BarChart data={cashFlow} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
+                <CartesianGrid strokeDasharray="4 4" stroke="var(--border)" opacity={0.5} vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v / 1000}K`} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), "Net"]} />
-                <Bar dataKey="net" radius={[4, 4, 0, 0]} name="Net Cash Flow">
-                  {cashFlow.map((entry, i) => <Cell key={i} fill={entry.net >= 0 ? "#10b981" : "#ef4444"} />)}
+                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number, name: string) => [fmt(v), name]} />
+                <Bar dataKey="net" radius={[5, 5, 0, 0]} name="Net Cash Flow" maxBarSize={24}>
+                  {cashFlow.map((entry, i) => (
+                    <Cell key={i} fill={entry.net >= 0 ? "#10b981" : "#ef4444"} opacity={0.85} />
+                  ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -86,23 +93,28 @@ export default function AnalyticsPage() {
           )}
         </Card>
 
-        <Card className="p-5">
-          <h3 className="font-bold text-foreground mb-1">Savings Trend</h3>
-          <p className="text-xs text-muted-foreground mb-4">Monthly savings over time</p>
+        <Card className="p-6 bg-gradient-to-br from-card to-card/65 border border-border/80 shadow-md">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-bold text-foreground text-base tracking-tight">Savings Trend</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Monthly savings over time</p>
+            </div>
+            <Badge color="purple">Savings</Badge>
+          </div>
           {areaChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={areaChartData} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+              <AreaChart data={areaChartData} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
                 <defs>
                   <linearGradient id="sv" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.35} />
                     <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <CartesianGrid strokeDasharray="4 4" stroke="var(--border)" opacity={0.5} vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v / 1000}K`} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), "Savings"]} />
-                <Area type="monotone" dataKey="savings" stroke="#8b5cf6" fill="url(#sv)" strokeWidth={2.5} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number, name: string) => [fmt(v), name]} />
+                <Area type="monotone" dataKey="savings" stroke="#8b5cf6" fill="url(#sv)" strokeWidth={2.5} dot={{ r: 3, stroke: "#8b5cf6", strokeWidth: 1.5, fill: "var(--card)" }} activeDot={{ r: 5 }} name="Savings" />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -110,17 +122,25 @@ export default function AnalyticsPage() {
           )}
         </Card>
 
-        <Card className="p-5">
-          <h3 className="font-bold text-foreground mb-1">Category Spending</h3>
-          <p className="text-xs text-muted-foreground mb-4">Breakdown of current month</p>
+        <Card className="p-6 bg-gradient-to-br from-card to-card/65 border border-border/80 shadow-md">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-bold text-foreground text-base tracking-tight">Category Spending</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Breakdown of current month</p>
+            </div>
+            <Badge color="amber">Expenses</Badge>
+          </div>
           {displaySpendingCats.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={displaySpendingCats} layout="vertical" margin={{ top: 0, right: 20, bottom: 0, left: 60 }}>
-                <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v / 1000}K`} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), ""]} />
-                <Bar dataKey="amount" radius={[0, 4, 4, 0]}>
-                  {displaySpendingCats.map((c, i) => <Cell key={i} fill={c.color} />)}
+              <BarChart data={displaySpendingCats} layout="vertical" margin={{ top: 0, right: 10, bottom: 0, left: 10 }}>
+                <CartesianGrid strokeDasharray="4 4" stroke="var(--border)" opacity={0.4} horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)} />
+                <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={80} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number, name: string) => [fmt(v), name]} />
+                <Bar dataKey="amount" radius={[0, 6, 6, 0]} barSize={12}>
+                  {displaySpendingCats.map((c, i) => (
+                    <Cell key={i} fill={c.color} opacity={0.85} />
+                  ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -129,19 +149,24 @@ export default function AnalyticsPage() {
           )}
         </Card>
 
-        <Card className="p-5">
-          <h3 className="font-bold text-foreground mb-1">Income vs Expenses</h3>
-          <p className="text-xs text-muted-foreground mb-4">Timeline comparison</p>
+        <Card className="p-6 bg-gradient-to-br from-card to-card/65 border border-border/80 shadow-md">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-bold text-foreground text-base tracking-tight">Income vs Expenses</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Timeline comparison</p>
+            </div>
+            <Badge color="blue">Compare</Badge>
+          </div>
           {areaChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={areaChartData} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <BarChart data={areaChartData} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
+                <CartesianGrid strokeDasharray="4 4" stroke="var(--border)" opacity={0.5} vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v / 1000}K`} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), ""]} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} name="Income" />
-                <Bar dataKey="expenses" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Expenses" />
+                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number, name: string) => [fmt(v), name]} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+                <Bar dataKey="income" fill="#10b981" radius={[5, 5, 0, 0]} maxBarSize={16} name="Income" opacity={0.85} />
+                <Bar dataKey="expenses" fill="#3b82f6" radius={[5, 5, 0, 0]} maxBarSize={16} name="Expenses" opacity={0.85} />
               </BarChart>
             </ResponsiveContainer>
           ) : (

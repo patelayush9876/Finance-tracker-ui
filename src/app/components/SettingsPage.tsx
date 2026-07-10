@@ -7,8 +7,11 @@ import { cn, fmt } from "./shared/utils";
 import { Card } from "./shared/Card";
 import { Btn } from "./shared/Btn";
 import { Input } from "./shared/Input";
+import { Badge } from "./shared/Badge";
+import { toast } from "sonner";
+import { Page } from "./shared/types";
 
-export default function SettingsPage({ darkMode, setDarkMode }: { darkMode: boolean; setDarkMode: (v: boolean) => void }) {
+export default function SettingsPage({ darkMode, setDarkMode, onNavigate, onSelectPlan }: { darkMode: boolean; setDarkMode: (v: boolean) => void; onNavigate?: (p: Page) => void; onSelectPlan?: (plan: "Pro" | "Family") => void }) {
   const [activeTab, setActiveTab] = useState("profile");
   const tabs = [
     { id: "profile", label: "Profile" },
@@ -16,6 +19,7 @@ export default function SettingsPage({ darkMode, setDarkMode }: { darkMode: bool
     { id: "notifications", label: "Notifications" },
     { id: "appearance", label: "Appearance" },
     { id: "accounts", label: "Accounts" },
+    { id: "billing", label: "Billing & Plans" },
   ];
 
   const { user, updateProfile, updateSettings } = useAuthStore();
@@ -200,6 +204,121 @@ export default function SettingsPage({ darkMode, setDarkMode }: { darkMode: bool
       )}
 
 
+      {activeTab === "billing" && (
+        <Card className="p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-border/50 pb-4">
+            <div>
+              <h3 className="font-bold text-foreground">Plan & Billing</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Manage your workspace subscription</p>
+            </div>
+            <Badge color={user?.settings?.subscriptionPlan === "Starter" || !user?.settings?.subscriptionPlan ? "gray" : "emerald"} className="px-2.5 py-1 text-xs">
+              {user?.settings?.subscriptionPlan || "Starter"} Plan
+            </Badge>
+          </div>
+
+          {(!user?.settings?.subscriptionPlan || user?.settings?.subscriptionPlan === "Starter") ? (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-card border border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <p className="font-bold text-sm text-foreground">Starter Plan (Free)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Basic expense tracking up to 100 transactions/month.</p>
+                </div>
+                <Btn variant="outline" className="opacity-60 cursor-default pointer-events-none" size="sm">Current Plan</Btn>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4 pt-2">
+                <Card className="p-4 flex flex-col justify-between border border-border hover:border-emerald-500/50 transition-colors">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-sm text-foreground">Pro Plan</span>
+                      <span className="text-xs font-semibold text-emerald-500 font-mono">₹499/mo</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">For serious investors and finance enthusiasts. Real-time automatic prices, PDF exports, and unlimited targets.</p>
+                  </div>
+                  <Btn 
+                    className="w-full justify-center mt-4" 
+                    size="sm"
+                    onClick={() => {
+                      onSelectPlan?.("Pro");
+                      onNavigate?.("checkout");
+                    }}
+                  >
+                    Upgrade to Pro
+                  </Btn>
+                </Card>
+
+                <Card className="p-4 flex flex-col justify-between border border-border hover:border-blue-500/50 transition-colors">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-sm text-foreground">Family Plan</span>
+                      <span className="text-xs font-semibold text-blue-500 font-mono">₹999/mo</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Manage finances for your entire family. Shared goals & budgets, family insights, and dedicated manager.</p>
+                  </div>
+                  <Btn 
+                    className="w-full justify-center mt-4" 
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      onSelectPlan?.("Family");
+                      onNavigate?.("checkout");
+                    }}
+                  >
+                    Upgrade to Family
+                  </Btn>
+                </Card>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                  <TrendingUp className="text-emerald-500" size={20} />
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-foreground">Premium benefits active!</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">You are subscribed to the <span className="font-bold text-emerald-500">{user?.settings?.subscriptionPlan}</span> Plan. Enjoy live price syncs, unlimited goals, and more.</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border p-4 space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Payment Method</span>
+                  <span className="font-mono text-foreground">Visa ending in 4444</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Next Billing Date</span>
+                  <span className="font-mono text-foreground">August 10, 2026</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Monthly Charge</span>
+                  <span className="font-mono text-foreground">₹{user?.settings?.subscriptionPlan === "Pro" ? "499" : "999"}.00</span>
+                </div>
+              </div>
+
+              <div className="flex justify-start pt-2">
+                <Btn 
+                  variant="ghost" 
+                  className="text-red-400 hover:bg-red-500/10 hover:text-red-400 text-xs" 
+                  size="sm"
+                  onClick={async () => {
+                    if (window.confirm("Are you sure you want to cancel your premium subscription?")) {
+                      try {
+                        await updateSettings({ subscriptionPlan: "Starter" });
+                        toast.success("Subscription cancelled successfully. Downgraded to Starter.");
+                      } catch (err: any) {
+                        toast.error(err.message || "Failed to cancel subscription");
+                      }
+                    }
+                  }}
+                >
+                  Cancel Subscription
+                </Btn>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

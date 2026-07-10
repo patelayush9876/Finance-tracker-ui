@@ -3,6 +3,8 @@ import { Mail, Lock, User, Eye, EyeOff, Shield, Zap, Award, ChevronRight } from 
 import { useAuthStore } from "../../store/useAuthStore";
 import { Btn } from "./shared/Btn";
 import { Input } from "./shared/Input";
+import { toast } from "sonner";
+import client from "../../api/client";
 
 export default function AuthPage({ onBack, onAuth }: { onBack: () => void; onAuth: () => void }) {
   const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
@@ -11,16 +13,22 @@ export default function AuthPage({ onBack, onAuth }: { onBack: () => void; onAut
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const { login, register } = useAuthStore();
 
   const handleLoginSubmit = async () => {
     setErrorMsg(null);
+    setSubmitting(true);
     try {
       await login({ email, password });
+      toast.success("Welcome back! Login successful.");
       onAuth();
     } catch (err: any) {
       setErrorMsg(err.message || "Invalid email or password");
+      toast.error(err.message || "Login failed");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -34,12 +42,37 @@ export default function AuthPage({ onBack, onAuth }: { onBack: () => void; onAut
     const firstName = parts[0] || "";
     const lastName = parts.slice(1).join(" ") || " ";
 
+    setSubmitting(true);
     try {
       await register({ firstName, lastName, email, password });
       await login({ email, password });
+      toast.success("Account created successfully!");
       onAuth();
     } catch (err: any) {
       setErrorMsg(err.message || "Registration failed");
+      toast.error(err.message || "Registration failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleForgotSubmit = async () => {
+    setErrorMsg(null);
+    if (!email) {
+      setErrorMsg("Please enter your email address");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await client.post('/auth/forgot-password', { email });
+      toast.success("Reset link requested! Check backend server logs.");
+      setMode("login");
+    } catch (err: any) {
+      const msg = err.response?.data?.message || "Failed to send reset link";
+      setErrorMsg(msg);
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -112,7 +145,7 @@ export default function AuthPage({ onBack, onAuth }: { onBack: () => void; onAut
                     </button>
                   </div>
                 </div>
-                <Btn className="w-full justify-center" size="lg" onClick={handleLoginSubmit}>Sign In</Btn>
+                <Btn className="w-full justify-center" size="lg" loading={submitting} onClick={handleLoginSubmit}>Sign In</Btn>
               </div>
               <p className="text-sm text-muted-foreground text-center mt-6">
                 No account?{" "}
@@ -132,7 +165,7 @@ export default function AuthPage({ onBack, onAuth }: { onBack: () => void; onAut
                   <Lock size={15} className="absolute left-3 top-9 text-muted-foreground" />
                   <Input label="Password" type={showPwd ? "text" : "password"} placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} />
                 </div>
-                <Btn className="w-full justify-center" size="lg" onClick={handleRegisterSubmit}>Create Free Account</Btn>
+                <Btn className="w-full justify-center" size="lg" loading={submitting} onClick={handleRegisterSubmit}>Create Free Account</Btn>
               </div>
               <p className="text-xs text-muted-foreground text-center mt-4">By signing up, you agree to our Terms & Privacy Policy</p>
               <p className="text-sm text-muted-foreground text-center mt-4">
@@ -151,7 +184,7 @@ export default function AuthPage({ onBack, onAuth }: { onBack: () => void; onAut
               <p className="text-sm text-muted-foreground mb-8">We'll send a reset link to your email</p>
               <div className="space-y-4">
                 <Input label="Email address" type="email" icon={Mail} placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
-                <Btn className="w-full justify-center" size="lg" onClick={() => setMode("login")}>Send Reset Link</Btn>
+                <Btn className="w-full justify-center" size="lg" loading={submitting} onClick={handleForgotSubmit}>Send Reset Link</Btn>
               </div>
               <button onClick={() => setMode("login")} className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mt-6 mx-auto">
                 <ChevronRight size={14} className="rotate-180" />

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Search, Plus, DollarSign, Calendar, Edit2, Trash2, Check, CreditCard } from "lucide-react";
-import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { ComposedChart, Area, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useFinanceStore } from "../../store/useFinanceStore";
 import { useDashboardStore } from "../../store/useDashboardStore";
-import { cn, fmt, fmtDate, TOOLTIP_STYLE, formatMonthStr } from "./shared/utils";
+import { cn, fmt, fmtDate, TOOLTIP_STYLE, formatMonthStr, getCurrencySymbol, getCurrencyIcon } from "./shared/utils";
 import { Badge } from "./shared/Badge";
 import { Card } from "./shared/Card";
 import { Btn } from "./shared/Btn";
@@ -42,13 +42,26 @@ export default function ExpensesPage() {
 
   const { expenses, expenseCategories, addExpense, updateExpense, deleteExpense } = useFinanceStore();
   const { monthlyIncomeExpense } = useDashboardStore();
+  const [timescale, setTimescale] = useState<"3M" | "6M" | "YTD">("6M");
 
   const chartData = monthlyIncomeExpense && monthlyIncomeExpense.length > 0
     ? monthlyIncomeExpense.map(m => ({
         month: formatMonthStr(m.month),
+        rawMonth: m.month,
         expenses: Number(m.expense),
       }))
     : [];
+
+  const filteredChartData = React.useMemo(() => {
+    if (timescale === "3M") {
+      return chartData.slice(-3);
+    }
+    if (timescale === "YTD") {
+      const currentYear = new Date().getFullYear().toString();
+      return chartData.filter(d => d.rawMonth.startsWith(currentYear));
+    }
+    return chartData;
+  }, [chartData, timescale]);
 
   const cats = ["All", ...expenseCategories.map(c => c.name)];
 
@@ -165,17 +178,49 @@ export default function ExpensesPage() {
       </div>
 
       {/* Expense Chart */}
-      <Card className="p-5">
-        <h3 className="font-bold text-foreground mb-4">Monthly Expense Trend</h3>
-        {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={chartData} margin={{ top: 0, right: 5, bottom: 0, left: -20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+      <Card className="p-6 bg-gradient-to-br from-card to-card/65 border border-border/80 shadow-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-border/50">
+          <div>
+            <h3 className="font-bold text-foreground text-base tracking-tight">Monthly Expense Trend</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Historical monthly spending patterns</p>
+          </div>
+          
+          {/* Timescale Selector */}
+          <div className="flex bg-muted/60 border border-border/50 p-0.5 rounded-lg self-start sm:self-auto">
+            {(["3M", "6M", "YTD"] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setTimescale(t)}
+                className={cn(
+                  "px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider transition-all",
+                  timescale === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+        {filteredChartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={180}>
+            <ComposedChart data={filteredChartData} margin={{ top: 10, right: 5, bottom: 0, left: -20 }}>
+              <defs>
+                <linearGradient id="expenseSynthGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#d946ef" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="4 4" stroke="var(--border)" opacity={0.5} vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v / 1000}K`} />
-              <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), "Expenses"]} />
-              <Bar dataKey="expenses" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Expenses" />
-            </BarChart>
+              <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(v: number, name: string) => [fmt(v), name]} />
+              
+              {/* Neon Glow overlay Line */}
+              <Line type="monotone" dataKey="expenses" stroke="#d946ef" strokeWidth={6} opacity={0.12} dot={false} activeDot={false} legendType="none" tooltipType="none" />
+              
+              {/* Main Area */}
+              <Area type="monotone" dataKey="expenses" stroke="#d946ef" strokeWidth={2.5} fill="url(#expenseSynthGrad)" name="Expenses" dot={{ r: 3, stroke: "#d946ef", strokeWidth: 1.5, fill: "var(--card)" }} activeDot={{ r: 5, stroke: "#d946ef", strokeWidth: 2 }} />
+            </ComposedChart>
           </ResponsiveContainer>
         ) : (
           <div className="py-10 text-center text-xs text-muted-foreground">No historical expense data found</div>
@@ -228,7 +273,7 @@ export default function ExpensesPage() {
         <div className="space-y-4">
           <Input label="Description" placeholder="e.g. Zepto Groceries" value={title} onChange={e => setTitle(e.target.value)} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Amount (₹)" type="number" placeholder="0.00" icon={DollarSign} value={amount} onChange={e => setAmount(e.target.value)} />
+            <Input label={`Amount (${getCurrencySymbol()})`} type="number" placeholder="0.00" icon={getCurrencyIcon()} value={amount} onChange={e => setAmount(e.target.value)} />
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Category</label>
               <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
@@ -249,7 +294,7 @@ export default function ExpensesPage() {
         <div className="space-y-4">
           <Input label="Description" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Amount (₹)" type="number" icon={DollarSign} value={editAmount} onChange={e => setEditAmount(e.target.value)} />
+            <Input label={`Amount (${getCurrencySymbol()})`} type="number" icon={getCurrencyIcon()} value={editAmount} onChange={e => setEditAmount(e.target.value)} />
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Category</label>
               <select value={editCategoryId} onChange={e => setEditCategoryId(e.target.value)}

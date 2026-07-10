@@ -139,7 +139,7 @@ export default function AppLayout({ children, currentPage, onNavigate, darkMode,
                 )}
               </button>
               {notifOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-2xl shadow-xl z-30 overflow-hidden">
+                <div className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-2xl shadow-xl z-[9999] overflow-hidden">
                   <div className="px-4 py-3 border-b border-border flex justify-between items-center">
                     <p className="font-semibold text-sm text-foreground">Notifications</p>
                     {unreadNotifs.length > 0 && (

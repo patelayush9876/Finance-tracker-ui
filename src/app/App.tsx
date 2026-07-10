@@ -5,6 +5,7 @@ import { useDashboardStore } from "../store/useDashboardStore";
 import { Sun, Moon } from "lucide-react";
 import { cn } from "./components/shared/utils";
 import { Page } from "./components/shared/types";
+import { Toaster } from "sonner";
 
 
 // Page Components
@@ -18,10 +19,12 @@ import InvestmentsPage from "./components/InvestmentsPage";
 import GoalsPage from "./components/GoalsPage";
 import AnalyticsPage from "./components/AnalyticsPage";
 import SettingsPage from "./components/SettingsPage";
+import CheckoutPage from "./components/CheckoutPage";
 
 export default function App() {
   const [page, setPage] = useState<Page>("landing");
   const [darkMode, setDarkMode] = useState(true);
+  const [selectedPlan, setSelectedPlan] = useState<"Pro" | "Family" | null>(null);
 
   const { isAuthenticated, getMe, logout, loading: authLoading } = useAuthStore();
   const { 
@@ -83,10 +86,31 @@ export default function App() {
     fetchAllDashboardData
   ]);
 
-  const handleGetStarted = () => setPage("auth");
-  const handleLogin = () => setPage("auth");
-  const handleAuth = () => { setPage("dashboard"); };
+  const handleGetStarted = () => {
+    setSelectedPlan(null);
+    setPage("auth");
+  };
+  const handleLogin = () => {
+    setSelectedPlan(null);
+    setPage("auth");
+  };
+  const handleAuth = () => {
+    if (selectedPlan) {
+      setPage("checkout");
+    } else {
+      setPage("dashboard");
+    }
+  };
   const handleBack = () => setPage("landing");
+  
+  const handleSelectPlan = (plan: "Pro" | "Family") => {
+    setSelectedPlan(plan);
+    if (isAuthenticated) {
+      setPage("checkout");
+    } else {
+      setPage("auth");
+    }
+  };
   
   const handleLogout = async () => {
     await logout();
@@ -120,7 +144,7 @@ export default function App() {
           >
             {darkMode ? <Sun size={16} className="text-foreground" /> : <Moon size={16} className="text-foreground" />}
           </button>
-          <LandingPage onGetStarted={handleGetStarted} onLogin={handleLogin} />
+          <LandingPage onGetStarted={handleGetStarted} onLogin={handleLogin} onSelectPlan={handleSelectPlan} />
         </div>
       </div>
     );
@@ -134,7 +158,8 @@ export default function App() {
       case "investments": return <InvestmentsPage />;
       case "goals": return <GoalsPage />;
       case "analytics": return <AnalyticsPage />;
-      case "settings": return <SettingsPage darkMode={darkMode} setDarkMode={setDarkMode} />;
+      case "settings": return <SettingsPage darkMode={darkMode} setDarkMode={setDarkMode} onNavigate={navigate} onSelectPlan={setSelectedPlan} />;
+      case "checkout": return <CheckoutPage onNavigate={navigate} selectedPlan={selectedPlan || undefined} />;
       default: return <DashboardPage onNavigate={navigate} />;
     }
   };
@@ -150,6 +175,7 @@ export default function App() {
       >
         {pageContent()}
       </AppLayout>
+      <Toaster richColors position="top-right" theme={darkMode ? "dark" : "light"} />
     </div>
   );
 }

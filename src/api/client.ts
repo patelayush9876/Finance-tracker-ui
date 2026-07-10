@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const client = axios.create({
+  // baseURL: 'http://localhost:5005/api',
   baseURL: 'https://finance-tracker-api-0knv.onrender.com/api',
   withCredentials: true,
 });

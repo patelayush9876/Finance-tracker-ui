@@ -5,7 +5,8 @@ import {
 } from "lucide-react";
 import {
   AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip,
-  Legend, ResponsiveContainer, PieChart, Pie, Cell
+  Legend, ResponsiveContainer, PieChart, Pie, Cell,
+  ComposedChart, Bar, Line
 } from "recharts";
 import { useFinanceStore } from "../../store/useFinanceStore";
 import { useDashboardStore } from "../../store/useDashboardStore";
@@ -18,8 +19,44 @@ import { SPENDING_CATS, MONTHLY, INVESTMENTS } from "./shared/constants";
 
 
 export default function DashboardPage({ onNavigate }: { onNavigate: (p: Page) => void }) {
-  const { summary, monthlyIncomeExpense, categoryBreakdown } = useDashboardStore();
+  const { summary, monthlyIncomeExpense, categoryBreakdown, netWorthHistory, savingsAnalysis } = useDashboardStore();
   const { investments, expenses, incomes, goals } = useFinanceStore();
+
+  const combinedChartData = React.useMemo(() => {
+    if (!monthlyIncomeExpense || monthlyIncomeExpense.length === 0) return [];
+    
+    return monthlyIncomeExpense.map(m => {
+      const monthKey = m.month;
+      const formattedMonth = formatMonthStr(monthKey);
+      const savingsRecord = savingsAnalysis?.find(s => s.month === monthKey);
+      const netWorthRecord = netWorthHistory?.find(n => n.month === monthKey);
+      
+      const income = Number(m.income);
+      const expenses = Number(m.expense);
+      const savings = savingsRecord ? Number(savingsRecord.savings) : Math.max(0, income - expenses);
+      const portfolio = netWorthRecord ? Number(netWorthRecord.investments) : 0;
+      
+      return {
+        month: formattedMonth,
+        Income: income,
+        Expenses: expenses,
+        Savings: savings,
+        Investments: portfolio,
+      };
+    });
+  }, [monthlyIncomeExpense, savingsAnalysis, netWorthHistory]);
+
+  const metrics = React.useMemo(() => {
+    if (combinedChartData.length === 0) return { avgIncome: 0, avgSavings: 0, currentPortfolio: 0 };
+    const totalIncome = combinedChartData.reduce((sum, item) => sum + item.Income, 0);
+    const totalSavings = combinedChartData.reduce((sum, item) => sum + item.Savings, 0);
+    const currentPortfolio = combinedChartData[combinedChartData.length - 1]?.Investments || 0;
+    return {
+      avgIncome: totalIncome / combinedChartData.length,
+      avgSavings: totalSavings / combinedChartData.length,
+      currentPortfolio,
+    };
+  }, [combinedChartData]);
 
   const netWorth = summary?.netWorth ?? 0;
   const monthlyIncome = summary?.monthlyIncome ?? 0;
@@ -35,7 +72,7 @@ export default function DashboardPage({ onNavigate }: { onNavigate: (p: Page) =>
   
   const displaySpendingCats = categoryBreakdown && categoryBreakdown.length > 0
     ? categoryBreakdown.map((cat, i) => ({
-        name: cat.categoryName,
+        name: cat.category || cat.categoryName,
         amount: Number(cat.amount),
         pct: Math.round(cat.percentage),
         color: COLORS[i % COLORS.length]
@@ -106,8 +143,8 @@ export default function DashboardPage({ onNavigate }: { onNavigate: (p: Page) =>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v / 1000}K`} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), ""]} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number, name: string) => [fmt(v), name]} />
                 <Area type="monotone" dataKey="income" stroke="#10b981" fill="url(#di)" strokeWidth={2} name="Income" />
                 <Area type="monotone" dataKey="expenses" stroke="#3b82f6" fill="url(#de)" strokeWidth={2} name="Expenses" />
                 <Legend wrapperStyle={{ fontSize: 11, color: "var(--muted-foreground)" }} />
@@ -126,18 +163,18 @@ export default function DashboardPage({ onNavigate }: { onNavigate: (p: Page) =>
             <>
               <ResponsiveContainer width="100%" height={140}>
                 <PieChart>
-                  <Pie data={displaySpendingCats.slice(0, 6)} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={2} dataKey="amount">
-                    {displaySpendingCats.slice(0, 6).map((cat, i) => <Cell key={i} fill={cat.color} />)}
+                  <Pie data={displaySpendingCats} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={2} dataKey="amount">
+                    {displaySpendingCats.map((cat, i) => <Cell key={i} fill={cat.color} />)}
                   </Pie>
-                  <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), ""]} />
+                  <Tooltip {...TOOLTIP_STYLE} formatter={(v: number, name: string) => [fmt(v), name]} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="space-y-2 mt-2 max-h-36 overflow-y-auto">
-                {displaySpendingCats.slice(0, 5).map(cat => (
+                {displaySpendingCats.map(cat => (
                   <div key={cat.name} className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full shrink-0" style={{ background: cat.color }} />
                     <span className="text-xs text-muted-foreground flex-1 truncate">{cat.name}</span>
-                    <span className="text-xs font-medium text-foreground font-mono">{cat.pct}%</span>
+                    <span className="text-xs font-semibold text-foreground font-mono">{fmt(cat.amount, true)}</span>
                   </div>
                 ))}
               </div>
@@ -242,6 +279,87 @@ export default function DashboardPage({ onNavigate }: { onNavigate: (p: Page) =>
             <div className="col-span-3 py-6 text-center text-xs text-muted-foreground">No active goals</div>
           )}
         </div>
+      </Card>
+
+      {/* Financial Overview (Combined Flow & Portfolio) */}
+      <Card className="p-6 relative overflow-hidden bg-gradient-to-br from-card to-card/65 border border-border/80 shadow-md">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-5 border-b border-border/50">
+          <div>
+            <h3 className="font-bold text-foreground text-lg tracking-tight">Financial Overview</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">6-Month Cash Flows (Bars) vs Total Portfolio Value (Line)</p>
+          </div>
+          
+          {/* Mini Stat Pillars */}
+          <div className="flex items-center gap-6 self-start md:self-auto">
+            <div className="text-left">
+              <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Avg Income
+              </span>
+              <p className="text-sm font-bold text-foreground font-mono mt-0.5">{fmt(metrics.avgIncome)}</p>
+            </div>
+            <div className="text-left">
+              <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-500" /> Avg Savings
+              </span>
+              <p className="text-sm font-bold text-foreground font-mono mt-0.5">{fmt(metrics.avgSavings)}</p>
+            </div>
+            <div className="text-left">
+              <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-500" /> Portfolio
+              </span>
+              <p className="text-sm font-bold text-purple-400 font-mono mt-0.5">{fmt(metrics.currentPortfolio)}</p>
+            </div>
+          </div>
+        </div>
+
+        {combinedChartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={320}>
+            <ComposedChart data={combinedChartData} margin={{ top: 10, right: -10, bottom: 0, left: -20 }}>
+              <defs>
+                {/* Income Gradient */}
+                <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.2} />
+                </linearGradient>
+                
+                {/* Expenses Gradient */}
+                <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f87171" stopOpacity={0.85} />
+                  <stop offset="100%" stopColor="#f87171" stopOpacity={0.2} />
+                </linearGradient>
+
+                {/* Savings Gradient */}
+                <linearGradient id="savingsGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.85} />
+                  <stop offset="100%" stopColor="#14b8a6" stopOpacity={0.2} />
+                </linearGradient>
+
+                {/* Investments Line Gradient */}
+                <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#a855f7" />
+                  <stop offset="50%" stopColor="#8b5cf6" />
+                  <stop offset="100%" stopColor="#6366f1" />
+                </linearGradient>
+              </defs>
+
+              <CartesianGrid strokeDasharray="4 4" stroke="var(--border)" opacity={0.5} vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+              <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(v: number, name: string) => [fmt(v), name]} />
+              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+              
+              <Bar yAxisId="left" dataKey="Income" fill="url(#incomeGrad)" radius={[5, 5, 0, 0]} maxBarSize={16} />
+              <Bar yAxisId="left" dataKey="Expenses" fill="url(#expenseGrad)" radius={[5, 5, 0, 0]} maxBarSize={16} />
+              <Bar yAxisId="left" dataKey="Savings" fill="url(#savingsGrad)" radius={[5, 5, 0, 0]} maxBarSize={16} />
+              
+              <Line yAxisId="right" type="monotone" dataKey="Investments" stroke="#8b5cf6" strokeWidth={7} opacity={0.12} dot={false} activeDot={false} legendType="none" tooltipType="none" />
+              <Line yAxisId="right" type="monotone" dataKey="Investments" stroke="url(#lineGrad)" strokeWidth={3} dot={{ r: 4, stroke: "#8b5cf6", strokeWidth: 2, fill: "var(--card)" }} activeDot={{ r: 6, stroke: "#a855f7", strokeWidth: 3 }} name="Portfolio Value" />
+            </ComposedChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="py-20 text-center text-xs text-muted-foreground">No historical data found</div>
+        )}
       </Card>
     </div>
   );

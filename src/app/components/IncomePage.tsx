@@ -3,7 +3,7 @@ import { TrendingUp, Landmark, Zap, Activity, ArrowUpRight, Plus, DollarSign, Ca
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useFinanceStore } from "../../store/useFinanceStore";
 import { useDashboardStore } from "../../store/useDashboardStore";
-import { cn, fmt, fmtDate, TOOLTIP_STYLE, formatMonthStr } from "./shared/utils";
+import { cn, fmt, fmtDate, TOOLTIP_STYLE, formatMonthStr, getCurrencySymbol, getCurrencyIcon } from "./shared/utils";
 import { Badge } from "./shared/Badge";
 import { Card } from "./shared/Card";
 import { Btn } from "./shared/Btn";
@@ -153,7 +153,7 @@ export default function IncomePage() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v / 1000}K`} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)} />
                 <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), "Income"]} />
                 <Area type="monotone" dataKey="income" stroke="#10b981" fill="url(#inc)" strokeWidth={2.5} />
               </AreaChart>
@@ -172,7 +172,7 @@ export default function IncomePage() {
                   <Pie data={displayIncomeCats} cx="50%" cy="50%" innerRadius={38} outerRadius={62} paddingAngle={3} dataKey="amount">
                     {displayIncomeCats.map((c, i) => <Cell key={i} fill={c.color} />)}
                   </Pie>
-                  <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), ""]} />
+                  <Tooltip {...TOOLTIP_STYLE} formatter={(v: number, name: string) => [fmt(v), name]} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="space-y-2.5 mt-3 max-h-36 overflow-y-auto">
@@ -227,7 +227,7 @@ export default function IncomePage() {
         <div className="space-y-4">
           <Input label="Description" placeholder="e.g. Salary June" value={title} onChange={e => setTitle(e.target.value)} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Amount (₹)" type="number" placeholder="0.00" icon={DollarSign} value={amount} onChange={e => setAmount(e.target.value)} />
+            <Input label={`Amount (${getCurrencySymbol()})`} type="number" placeholder="0.00" icon={getCurrencyIcon()} value={amount} onChange={e => setAmount(e.target.value)} />
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Category</label>
               <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
@@ -248,7 +248,7 @@ export default function IncomePage() {
         <div className="space-y-4">
           <Input label="Description" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Amount (₹)" type="number" icon={DollarSign} value={editAmount} onChange={e => setEditAmount(e.target.value)} />
+            <Input label={`Amount (${getCurrencySymbol()})`} type="number" icon={getCurrencyIcon()} value={editAmount} onChange={e => setEditAmount(e.target.value)} />
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Category</label>
               <select value={editCategoryId} onChange={e => setEditCategoryId(e.target.value)}

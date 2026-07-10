@@ -30,6 +30,8 @@ interface Investment {
   currentValue: number;
   purchaseDate: string;
   notes?: string;
+  symbol?: string;
+  quantity?: number;
   gl?: number;
   glp?: number;
   alloc?: number;
@@ -102,6 +104,7 @@ interface FinanceState {
   addInvestment: (data: any) => Promise<Investment>;
   updateInvestment: (id: string, data: any) => Promise<Investment>;
   deleteInvestment: (id: string) => Promise<void>;
+  syncInvestments: () => Promise<void>;
 
   fetchGoals: () => Promise<Goal[]>;
   addGoal: (data: any) => Promise<Goal>;
@@ -381,6 +384,20 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       get().fetchActivityLogs();
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Failed to delete investment';
+      set({ error: msg, loading: false });
+      throw new Error(msg);
+    }
+  },
+
+  syncInvestments: async () => {
+    set({ loading: true, error: null });
+    try {
+      await client.post('/investments/sync-prices');
+      await get().fetchInvestments();
+      triggerDashboardRefresh();
+      set({ loading: false });
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Failed to sync investment prices';
       set({ error: msg, loading: false });
       throw new Error(msg);
     }

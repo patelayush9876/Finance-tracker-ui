@@ -1,14 +1,34 @@
+import { useAuthStore } from "../../../store/useAuthStore";
+import { DollarSign, IndianRupee, Euro } from "lucide-react";
+
 export const cn = (...classes: (string | undefined | null | false)[]) =>
   classes.filter(Boolean).join(" ");
 
-export const fmt = (n: number, compact = false) =>
-  compact
-    ? n >= 100000
-      ? `₹${(n / 100000).toFixed(1)}L`
-      : n >= 1000
-      ? `₹${(n / 1000).toFixed(0)}K`
-      : `₹${n}`
-    : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Math.abs(n));
+export const getCurrencySymbol = () => {
+  const currency = useAuthStore.getState().settings?.currency || "INR";
+  if (currency === "USD") return "$";
+  if (currency === "EUR") return "€";
+  return "₹";
+};
+
+export const getCurrencyIcon = () => {
+  const currency = useAuthStore.getState().settings?.currency || "INR";
+  if (currency === "USD") return DollarSign;
+  if (currency === "EUR") return Euro;
+  return IndianRupee;
+};
+
+export const fmt = (n: number, compact = false) => {
+  const currency = useAuthStore.getState().settings?.currency || "INR";
+  const absVal = Math.abs(n);
+  const locale = currency === "INR" ? "en-IN" : "en-US";
+  const formatted = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: currency,
+    maximumFractionDigits: 0,
+  }).format(absVal);
+  return n < 0 ? `-${formatted}` : formatted;
+};
 
 export const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -22,6 +42,7 @@ export const TOOLTIP_STYLE = {
     fontSize: "12px",
     boxShadow: "0 10px 40px rgba(0,0,0,0.15)",
   },
+  itemStyle: { color: "var(--foreground)" },
   labelStyle: { color: "var(--muted-foreground)", marginBottom: "4px" },
   cursor: { stroke: "var(--border)" },
 };

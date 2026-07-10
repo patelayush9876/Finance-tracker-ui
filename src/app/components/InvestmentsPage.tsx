@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import { Plus, Briefcase, Wallet, TrendingUp, Activity, Calendar, DollarSign, Edit2, Trash2, Check } from "lucide-react";
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useFinanceStore } from "../../store/useFinanceStore";
+import { toast } from "sonner";
 import { useDashboardStore } from "../../store/useDashboardStore";
-import { cn, fmt, fmtDate, TOOLTIP_STYLE, formatMonthStr } from "./shared/utils";
+import { cn, fmt, fmtDate, TOOLTIP_STYLE, formatMonthStr, getCurrencySymbol, getCurrencyIcon } from "./shared/utils";
 import { Badge } from "./shared/Badge";
 import { Card } from "./shared/Card";
 import { Btn } from "./shared/Btn";
@@ -37,6 +38,8 @@ export default function InvestmentsPage() {
   const [currentValue, setCurrentValue] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
+  const [symbol, setSymbol] = useState("");
+  const [quantity, setQuantity] = useState("");
 
   // Edit states
   const [editName, setEditName] = useState("");
@@ -45,8 +48,14 @@ export default function InvestmentsPage() {
   const [editCurrentValue, setEditCurrentValue] = useState("");
   const [editPurchaseDate, setEditPurchaseDate] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [editSymbol, setEditSymbol] = useState("");
+  const [editQuantity, setEditQuantity] = useState("");
 
-  const { investments, addInvestment, updateInvestment, deleteInvestment } = useFinanceStore();
+  const [savingAdd, setSavingAdd] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const { investments, addInvestment, updateInvestment, deleteInvestment, syncInvestments } = useFinanceStore();
   const { netWorthHistory, investmentPerformance } = useDashboardStore();
 
   const totalValue = investments.reduce((s, i) => s + i.currentValue, 0);
@@ -87,6 +96,18 @@ export default function InvestmentsPage() {
     color: COLORS[i % COLORS.length]
   }));
 
+  const handleSyncPrices = async () => {
+    setSyncing(true);
+    try {
+      await syncInvestments();
+      toast.success("Investment prices updated successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to sync prices");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleOpenAdd = () => {
     setName("");
     setType("MUTUAL_FUND");
@@ -94,6 +115,8 @@ export default function InvestmentsPage() {
     setCurrentValue("");
     setPurchaseDate(new Date().toISOString().split("T")[0]);
     setNotes("");
+    setSymbol("");
+    setQuantity("");
     setShowAddModal(true);
   };
 
@@ -105,10 +128,13 @@ export default function InvestmentsPage() {
     setEditCurrentValue(String(inv.currentValue));
     setEditPurchaseDate(new Date(inv.purchaseDate).toISOString().split("T")[0]);
     setEditNotes(inv.notes || "");
+    setEditSymbol(inv.symbol || "");
+    setEditQuantity(inv.quantity ? String(inv.quantity) : "");
   };
 
   const handleSaveAdd = async () => {
     if (!name.trim() || !amountInvested || !currentValue || !purchaseDate) return;
+    setSavingAdd(true);
     try {
       await addInvestment({
         name,
@@ -117,15 +143,21 @@ export default function InvestmentsPage() {
         currentValue: parseFloat(currentValue),
         purchaseDate: new Date(purchaseDate).toISOString(),
         notes: notes || undefined,
+        symbol: symbol.trim() || undefined,
+        quantity: quantity ? parseFloat(quantity) : undefined,
       });
+      toast.success("Investment added successfully!");
       setShowAddModal(false);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add investment");
+    } finally {
+      setSavingAdd(false);
     }
   };
 
   const handleSaveEdit = async () => {
     if (!editId || !editName.trim() || !editAmountInvested || !editCurrentValue || !editPurchaseDate) return;
+    setSavingEdit(true);
     try {
       await updateInvestment(editId, {
         name: editName,
@@ -134,10 +166,15 @@ export default function InvestmentsPage() {
         currentValue: parseFloat(editCurrentValue),
         purchaseDate: new Date(editPurchaseDate).toISOString(),
         notes: editNotes || undefined,
+        symbol: editSymbol.trim() || undefined,
+        quantity: editQuantity ? parseFloat(editQuantity) : undefined,
       });
+      toast.success("Investment updated successfully!");
       setEditId(null);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update investment");
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -145,8 +182,9 @@ export default function InvestmentsPage() {
     if (window.confirm("Are you sure you want to delete this investment?")) {
       try {
         await deleteInvestment(id);
-      } catch (err) {
-        console.error(err);
+        toast.success("Investment deleted successfully!");
+      } catch (err: any) {
+        toast.error(err.message || "Failed to delete investment");
       }
     }
   };
@@ -158,7 +196,13 @@ export default function InvestmentsPage() {
           <h2 className="text-xl font-bold text-foreground">Investments</h2>
           <p className="text-sm text-muted-foreground">Manage your assets portfolio</p>
         </div>
-        <Btn onClick={handleOpenAdd}><Plus size={15} />New Investment</Btn>
+        <div className="flex gap-2 shrink-0">
+          <Btn onClick={handleSyncPrices} variant="outline" loading={syncing} disabled={syncing}>
+            <Activity size={15} />
+            Sync Prices
+          </Btn>
+          <Btn onClick={handleOpenAdd}><Plus size={15} />New Investment</Btn>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -184,7 +228,7 @@ export default function InvestmentsPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={v => `${(v / 100000).toFixed(1)}L`} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), ""]} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number, name: string) => [fmt(v), name]} />
                 <Line type="monotone" dataKey="portfolio" stroke="#10b981" strokeWidth={2.5} dot={false} name="My Portfolio" />
                 <Line type="monotone" dataKey="benchmark" stroke="#94a3b8" strokeWidth={1.5} dot={false} strokeDasharray="5 5" name="Nifty 50" />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -202,7 +246,7 @@ export default function InvestmentsPage() {
               <Pie data={assetAllocation.length > 0 ? assetAllocation : [{ name: "None", value: 1, color: "#94a3b8" }]} cx="50%" cy="50%" innerRadius={42} outerRadius={65} paddingAngle={2} dataKey="value">
                 {(assetAllocation.length > 0 ? assetAllocation : [{ name: "None", value: 1, color: "#94a3b8" }]).map((inv, i) => <Cell key={i} fill={inv.color} />)}
               </Pie>
-              <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), ""]} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(v: number, name: string) => [fmt(v), name]} />
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-2 mt-2 max-h-36 overflow-y-auto">
@@ -306,13 +350,17 @@ export default function InvestmentsPage() {
             <Input label="Purchase Date" type="date" icon={Calendar} value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Amount Invested (₹)" type="number" placeholder="0.00" icon={DollarSign} value={amountInvested} onChange={e => setAmountInvested(e.target.value)} />
-            <Input label="Current Value (₹)" type="number" placeholder="0.00" icon={TrendingUp} value={currentValue} onChange={e => setCurrentValue(e.target.value)} />
+            <Input label={`Amount Invested (${getCurrencySymbol()})`} type="number" placeholder="0.00" icon={getCurrencyIcon()} value={amountInvested} onChange={e => setAmountInvested(e.target.value)} />
+            <Input label={`Current Value (${getCurrencySymbol()})`} type="number" placeholder="0.00" icon={TrendingUp} value={currentValue} onChange={e => setCurrentValue(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Ticker Symbol (Optional)" placeholder="e.g. INFY.NS, BTC, 120718" value={symbol} onChange={e => setSymbol(e.target.value)} />
+            <Input label="Quantity (Optional)" placeholder="e.g. 10, 0.05" type="number" step="any" value={quantity} onChange={e => setQuantity(e.target.value)} />
           </div>
           <Input label="Notes" placeholder="Optional notes..." value={notes} onChange={e => setNotes(e.target.value)} />
           <div className="flex gap-2 pt-1">
             <Btn variant="outline" className="flex-1 justify-center" onClick={() => setShowAddModal(false)}>Cancel</Btn>
-            <Btn className="flex-1 justify-center" onClick={handleSaveAdd}><Check size={14} />Save</Btn>
+            <Btn className="flex-1 justify-center" loading={savingAdd} onClick={handleSaveAdd}><Check size={14} />Save</Btn>
           </div>
         </div>
       </Modal>
@@ -331,13 +379,17 @@ export default function InvestmentsPage() {
             <Input label="Purchase Date" type="date" icon={Calendar} value={editPurchaseDate} onChange={e => setEditPurchaseDate(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Amount Invested (₹)" type="number" icon={DollarSign} value={editAmountInvested} onChange={e => setEditAmountInvested(e.target.value)} />
-            <Input label="Current Value (₹)" type="number" icon={TrendingUp} value={editCurrentValue} onChange={e => setEditCurrentValue(e.target.value)} />
+            <Input label={`Amount Invested (${getCurrencySymbol()})`} type="number" icon={getCurrencyIcon()} value={editAmountInvested} onChange={e => setEditAmountInvested(e.target.value)} />
+            <Input label={`Current Value (${getCurrencySymbol()})`} type="number" icon={TrendingUp} value={editCurrentValue} onChange={e => setEditCurrentValue(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Ticker Symbol (Optional)" value={editSymbol} onChange={e => setEditSymbol(e.target.value)} />
+            <Input label="Quantity (Optional)" type="number" step="any" value={editQuantity} onChange={e => setEditQuantity(e.target.value)} />
           </div>
           <Input label="Notes" value={editNotes} onChange={e => setEditNotes(e.target.value)} />
           <div className="flex gap-2 pt-1">
             <Btn variant="outline" className="flex-1 justify-center" onClick={() => setEditId(null)}>Cancel</Btn>
-            <Btn className="flex-1 justify-center" onClick={handleSaveEdit}><Check size={14} />Update</Btn>
+            <Btn className="flex-1 justify-center" loading={savingEdit} onClick={handleSaveEdit}><Check size={14} />Update</Btn>
           </div>
         </div>
       </Modal>

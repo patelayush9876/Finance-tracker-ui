@@ -1,18 +1,21 @@
 import React, { useState } from "react";
 import { Plus, DollarSign, Calendar, Wallet, Check, Edit2, Trash2, Target } from "lucide-react";
 import { useFinanceStore } from "../../store/useFinanceStore";
-import { cn, fmt, fmtDate } from "./shared/utils";
+import { cn, fmt, fmtDate, getCurrencySymbol, getCurrencyIcon } from "./shared/utils";
 import { Badge } from "./shared/Badge";
 import { Card } from "./shared/Card";
 import { Btn } from "./shared/Btn";
 import { Input } from "./shared/Input";
 import { Modal } from "./shared/Modal";
 import { catColors } from "./shared/constants";
+import { toast } from "sonner";
 
 
 export default function GoalsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [savingAdd, setSavingAdd] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Add states
   const [name, setName] = useState("");
@@ -64,6 +67,7 @@ export default function GoalsPage() {
 
   const handleSaveAdd = async () => {
     if (!name.trim() || !targetAmount || !targetDate) return;
+    setSavingAdd(true);
     try {
       await addGoal({
         name,
@@ -72,14 +76,18 @@ export default function GoalsPage() {
         targetDate: new Date(targetDate).toISOString(),
         description: JSON.stringify({ category, desc: description }),
       });
+      toast.success("Financial goal created successfully!");
       setShowAdd(false);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create goal");
+    } finally {
+      setSavingAdd(false);
     }
   };
 
   const handleSaveEdit = async () => {
     if (!editId || !editName.trim() || !editTargetAmount || !editTargetDate) return;
+    setSavingEdit(true);
     try {
       await updateGoal(editId, {
         name: editName,
@@ -88,9 +96,12 @@ export default function GoalsPage() {
         targetDate: new Date(editTargetDate).toISOString(),
         description: JSON.stringify({ category: editCategory, desc: editDescription }),
       });
+      toast.success("Goal updated successfully!");
       setEditId(null);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update goal");
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -98,8 +109,9 @@ export default function GoalsPage() {
     if (window.confirm("Are you sure you want to delete this goal?")) {
       try {
         await deleteGoal(id);
-      } catch (err) {
-        console.error(err);
+        toast.success("Goal deleted successfully!");
+      } catch (err: any) {
+        toast.error(err.message || "Failed to delete goal");
       }
     }
   };
@@ -202,7 +214,7 @@ export default function GoalsPage() {
               {pct < 100 && g.suggestion && (
                 <div className="mt-3 p-2.5 bg-muted/50 rounded-lg">
                   <p className="text-[11px] text-muted-foreground leading-normal">
-                    {g.suggestion.replace(/\$/g, "₹")}
+                    {g.suggestion.replace(/\$/g, getCurrencySymbol())}
                   </p>
                 </div>
               )}
@@ -221,7 +233,7 @@ export default function GoalsPage() {
         <div className="space-y-4">
           <Input label="Goal Name" placeholder="e.g. Europe Trip 2027" value={name} onChange={e => setName(e.target.value)} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Target Amount (₹)" type="number" icon={DollarSign} placeholder="250000" value={targetAmount} onChange={e => setTargetAmount(e.target.value)} />
+            <Input label={`Target Amount (${getCurrencySymbol()})`} type="number" icon={getCurrencyIcon()} placeholder="250000" value={targetAmount} onChange={e => setTargetAmount(e.target.value)} />
             <Input label="Target Date" type="date" icon={Calendar} value={targetDate} onChange={e => setTargetDate(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -232,12 +244,12 @@ export default function GoalsPage() {
                 {Object.keys(catColors).map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <Input label="Initial Amount (₹)" type="number" icon={Wallet} placeholder="0" value={initialAmount} onChange={e => setInitialAmount(e.target.value)} />
+            <Input label={`Initial Amount (${getCurrencySymbol()})`} type="number" icon={Wallet} placeholder="0" value={initialAmount} onChange={e => setInitialAmount(e.target.value)} />
           </div>
           <Input label="Description" placeholder="Notes or descriptions..." value={description} onChange={e => setDescription(e.target.value)} />
           <div className="flex gap-2 pt-1">
             <Btn variant="outline" className="flex-1 justify-center" onClick={() => setShowAdd(false)}>Cancel</Btn>
-            <Btn className="flex-1 justify-center" onClick={handleSaveAdd}><Check size={14} />Create Goal</Btn>
+            <Btn className="flex-1 justify-center" loading={savingAdd} onClick={handleSaveAdd}><Check size={14} />Create Goal</Btn>
           </div>
         </div>
       </Modal>
@@ -246,7 +258,7 @@ export default function GoalsPage() {
         <div className="space-y-4">
           <Input label="Goal Name" value={editName} onChange={e => setEditName(e.target.value)} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Target Amount (₹)" type="number" icon={DollarSign} value={editTargetAmount} onChange={e => setEditTargetAmount(e.target.value)} />
+            <Input label={`Target Amount (${getCurrencySymbol()})`} type="number" icon={getCurrencyIcon()} value={editTargetAmount} onChange={e => setEditTargetAmount(e.target.value)} />
             <Input label="Target Date" type="date" icon={Calendar} value={editTargetDate} onChange={e => setEditTargetDate(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -257,12 +269,12 @@ export default function GoalsPage() {
                 {Object.keys(catColors).map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <Input label="Current Amount Saved (₹)" type="number" icon={Wallet} value={editCurrentAmount} onChange={e => setEditCurrentAmount(e.target.value)} />
+            <Input label={`Current Amount Saved (${getCurrencySymbol()})`} type="number" icon={Wallet} value={editCurrentAmount} onChange={e => setEditCurrentAmount(e.target.value)} />
           </div>
           <Input label="Description" value={editDescription} onChange={e => setEditDescription(e.target.value)} />
           <div className="flex gap-2 pt-1">
             <Btn variant="outline" className="flex-1 justify-center" onClick={() => setEditId(null)}>Cancel</Btn>
-            <Btn className="flex-1 justify-center" onClick={handleSaveEdit}><Check size={14} />Update Goal</Btn>
+            <Btn className="flex-1 justify-center" loading={savingEdit} onClick={handleSaveEdit}><Check size={14} />Update Goal</Btn>
           </div>
         </div>
       </Modal>

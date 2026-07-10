@@ -17,6 +17,7 @@ interface UserSettings {
   currency: string;
   theme: string;
   notificationsEnabled: boolean;
+  subscriptionPlan: string;
 }
 
 interface AuthState {

@@ -8,7 +8,7 @@ import { Badge } from "./shared/Badge";
 import { MONTHLY, FEATURES, TESTIMONIALS, PRICING } from "./shared/constants";
 
 
-export default function LandingPage({ onGetStarted, onLogin }: { onGetStarted: () => void; onLogin: () => void }) {
+export default function LandingPage({ onGetStarted, onLogin, onSelectPlan }: { onGetStarted: () => void; onLogin: () => void; onSelectPlan?: (plan: "Pro" | "Family") => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -242,7 +242,13 @@ export default function LandingPage({ onGetStarted, onLogin }: { onGetStarted: (
                 <Btn
                   variant={p.hot ? "primary" : "outline"}
                   className="w-full justify-center"
-                  onClick={onGetStarted}
+                  onClick={() => {
+                    if (p.name === "Pro" || p.name === "Family") {
+                      onSelectPlan?.(p.name as "Pro" | "Family");
+                    } else {
+                      onGetStarted();
+                    }
+                  }}
                 >
                   {p.cta}
                 </Btn>
