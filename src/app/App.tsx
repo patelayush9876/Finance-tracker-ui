@@ -15,6 +15,7 @@ import AuthPage from "./components/AuthPage";
 import AppLayout from "./components/AppLayout";
 import DashboardPage from "./components/DashboardPage";
 import ExpensesPage from "./components/ExpensesPage";
+import CreditCardsPage from "./components/CreditCardsPage";
 import IncomePage from "./components/IncomePage";
 import InvestmentsPage from "./components/InvestmentsPage";
 import GoalsPage from "./components/GoalsPage";
@@ -22,6 +23,7 @@ import AnalyticsPage from "./components/AnalyticsPage";
 import SettingsPage from "./components/SettingsPage";
 import CheckoutPage from "./components/CheckoutPage";
 import AdminPortalPage from "./components/AdminPortalPage";
+import { useCreditCardStore } from "../store/useCreditCardStore";
 
 export default function App() {
   const [page, setPage] = useState<Page>("landing");
@@ -39,6 +41,7 @@ export default function App() {
     fetchNotifications,
     fetchActivityLogs
   } = useFinanceStore();
+  const { fetchCards } = useCreditCardStore();
   
   const { fetchAllDashboardData } = useDashboardStore();
 
@@ -73,6 +76,7 @@ export default function App() {
       fetchInvestments();
       fetchNotifications();
       fetchActivityLogs();
+      fetchCards();
       fetchAllDashboardData();
     }
   }, [
@@ -85,6 +89,7 @@ export default function App() {
     fetchInvestments,
     fetchNotifications,
     fetchActivityLogs,
+    fetchCards,
     fetchAllDashboardData
   ]);
 
@@ -156,6 +161,7 @@ export default function App() {
     switch (page) {
       case "dashboard": return <DashboardPage onNavigate={navigate} />;
       case "expenses": return <ExpensesPage />;
+      case "cards": return <CreditCardsPage />;
       case "income": return <IncomePage />;
       case "investments": return <InvestmentsPage />;
       case "goals": return <GoalsPage />;

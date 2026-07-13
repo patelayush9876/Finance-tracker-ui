@@ -10,6 +10,9 @@ interface Expense {
   expenseDate: string;
   categoryId: string;
   category?: { id: string; name: string };
+  creditCardId?: string;
+  excludeFromAnalytics?: boolean;
+  creditCard?: { id: string; name: string };
 }
 
 interface Income {
@@ -141,6 +144,11 @@ const triggerDashboardRefresh = () => {
   store.fetchTopCategories().catch(console.error);
   store.fetchSavingsAnalysis().catch(console.error);
   store.fetchInvestmentPerformance().catch(console.error);
+
+  // Refresh credit cards dynamically to break circular dependencies
+  import('./useCreditCardStore').then((m) => {
+    m.useCreditCardStore.getState().fetchCards().catch(console.error);
+  }).catch(() => {});
 };
 
 export const useFinanceStore = create<FinanceState>((set, get) => ({

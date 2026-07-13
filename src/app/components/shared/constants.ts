@@ -1,6 +1,6 @@
 import {
   BarChart2, Briefcase, Target, CreditCard, Shield,
-  Zap, Home, Settings, TrendingUp
+  Zap, Home, Settings, TrendingUp, Receipt
 } from "lucide-react";
 
 export const MONTHLY = [
@@ -85,7 +85,8 @@ export const FEATURES = [
 
 export const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: Home },
-  { id: "expenses", label: "Expenses", icon: CreditCard },
+  { id: "expenses", label: "Expenses", icon: Receipt },
+  { id: "cards", label: "Cards", icon: CreditCard },
   { id: "income", label: "Income", icon: TrendingUp },
   { id: "investments", label: "Investments", icon: Briefcase },
   { id: "goals", label: "Goals", icon: Target },

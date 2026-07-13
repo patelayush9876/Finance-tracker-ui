@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const client = axios.create({
-  // baseURL: 'http://localhost:5005/api',
-  baseURL: 'https://finance-tracker-api-0knv.onrender.com/api',
+  baseURL: 'http://localhost:5005/api',
+  // baseURL: 'https://finance-tracker-api-0knv.onrender.com/api',
   withCredentials: true,
 });
 
@@ -56,7 +56,7 @@ client.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await axios.post('/auth/refresh', {}, { withCredentials: true });
+        await client.post('/auth/refresh', {}, { withCredentials: true });
         processQueue(null);
         isRefreshing = false;
         return client(originalRequest);

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { Search, Plus, DollarSign, Calendar, Edit2, Trash2, Check, CreditCard } from "lucide-react";
+import { Search, Plus, DollarSign, Calendar, Edit2, Trash2, Check, CreditCard, AlertCircle } from "lucide-react";
 import { ComposedChart, Area, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useFinanceStore } from "../../store/useFinanceStore";
 import { useDashboardStore } from "../../store/useDashboardStore";
+import { useCreditCardStore } from "../../store/useCreditCardStore";
 import { cn, fmt, fmtDate, TOOLTIP_STYLE, formatMonthStr, getCurrencySymbol, getCurrencyIcon } from "./shared/utils";
 import { Badge } from "./shared/Badge";
 import { Card } from "./shared/Card";
@@ -11,7 +12,6 @@ import { Btn } from "./shared/Btn";
 import { Input } from "./shared/Input";
 import { Modal } from "./shared/Modal";
 import { MONTHLY } from "./shared/constants";
-
 
 interface Expense {
   id: string;
@@ -21,6 +21,9 @@ interface Expense {
   expenseDate: string;
   categoryId: string;
   category?: { id: string; name: string };
+  creditCardId?: string;
+  excludeFromAnalytics?: boolean;
+  creditCard?: { id: string; name: string };
 }
 
 export default function ExpensesPage() {
@@ -34,15 +37,20 @@ export default function ExpensesPage() {
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split("T")[0]);
+  const [creditCardId, setCreditCardId] = useState("");
+  const [excludeFromAnalytics, setExcludeFromAnalytics] = useState(false);
 
   // States for Edit Modal
   const [editTitle, setEditTitle] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editCategoryId, setEditCategoryId] = useState("");
   const [editExpenseDate, setEditExpenseDate] = useState("");
+  const [editCreditCardId, setEditCreditCardId] = useState("");
+  const [editExcludeFromAnalytics, setEditExcludeFromAnalytics] = useState(false);
 
   const { expenses, expenseCategories, addExpense, updateExpense, deleteExpense } = useFinanceStore();
   const { monthlyIncomeExpense } = useDashboardStore();
+  const { cards } = useCreditCardStore();
   const [timescale, setTimescale] = useState<"3M" | "6M" | "YTD">("6M");
 
   const chartData = monthlyIncomeExpense && monthlyIncomeExpense.length > 0
@@ -83,6 +91,21 @@ export default function ExpensesPage() {
     }
   }, [expenseCategories, categoryId]);
 
+  // Auto-exclude credit card bill payments from analytics
+  useEffect(() => {
+    const selectedCatName = expenseCategories.find(c => c.id === categoryId)?.name || "";
+    if (selectedCatName.toLowerCase().includes("credit card bill")) {
+      setExcludeFromAnalytics(true);
+    }
+  }, [categoryId, expenseCategories]);
+
+  useEffect(() => {
+    const selectedCatName = expenseCategories.find(c => c.id === editCategoryId)?.name || "";
+    if (selectedCatName.toLowerCase().includes("credit card bill")) {
+      setEditExcludeFromAnalytics(true);
+    }
+  }, [editCategoryId, expenseCategories]);
+
   const handleOpenAdd = () => {
     setTitle("");
     setAmount("");
@@ -90,6 +113,8 @@ export default function ExpensesPage() {
       setCategoryId(expenseCategories[0].id);
     }
     setExpenseDate(new Date().toISOString().split("T")[0]);
+    setCreditCardId("");
+    setExcludeFromAnalytics(false);
     setShowAddModal(true);
   };
 
@@ -101,6 +126,8 @@ export default function ExpensesPage() {
         amount: parseFloat(amount),
         categoryId,
         expenseDate: new Date(expenseDate).toISOString(),
+        creditCardId: creditCardId ? creditCardId : undefined,
+        excludeFromAnalytics,
       });
       setShowAddModal(false);
     } catch (err) {
@@ -114,6 +141,8 @@ export default function ExpensesPage() {
     setEditAmount(String(exp.amount));
     setEditCategoryId(exp.categoryId);
     setEditExpenseDate(new Date(exp.expenseDate).toISOString().split("T")[0]);
+    setEditCreditCardId(exp.creditCardId || "");
+    setEditExcludeFromAnalytics(exp.excludeFromAnalytics || false);
   };
 
   const handleSaveEdit = async () => {
@@ -124,6 +153,8 @@ export default function ExpensesPage() {
         amount: parseFloat(editAmount),
         categoryId: editCategoryId,
         expenseDate: new Date(editExpenseDate).toISOString(),
+        creditCardId: editCreditCardId ? editCreditCardId : null,
+        excludeFromAnalytics: editExcludeFromAnalytics,
       });
       setEditId(null);
     } catch (err) {
@@ -247,7 +278,7 @@ export default function ExpensesPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                {["Date", "Description", "Category", "Amount", ""].map(h => (
+                {["Date", "Description", "Category", "Method", "Amount", ""].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">{h}</th>
                 ))}
               </tr>
@@ -265,6 +296,19 @@ export default function ExpensesPage() {
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{t.title}</td>
                   <td className="px-4 py-3">
                     <Badge color="#3b82f6">{t.category?.name || "Uncategorized"}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    {t.excludeFromAnalytics ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full" title="Excluded from analytics to prevent double-counting">
+                        <AlertCircle size={10} /> Transfer
+                      </span>
+                    ) : t.creditCard ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full">
+                        <CreditCard size={10} /> {t.creditCard.name}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">Cash/Bank</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm font-semibold text-red-400 font-mono">{fmt(t.amount)}</td>
                   <td className="px-4 py-3">
@@ -299,7 +343,31 @@ export default function ExpensesPage() {
               </select>
             </div>
           </div>
-          <Input label="Date" type="date" icon={Calendar} value={expenseDate} onChange={e => setExpenseDate(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Date" type="date" icon={Calendar} value={expenseDate} onChange={e => setExpenseDate(e.target.value)} />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Payment Method</label>
+              <select value={creditCardId} onChange={e => setCreditCardId(e.target.value)}
+                className="bg-input-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                <option value="">Cash / Bank Account</option>
+                {cards.map(card => (
+                  <option key={card.id} value={card.id}>💳 {card.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-1.5">
+            <input 
+              type="checkbox" 
+              id="excludeFromAnalyticsAdd"
+              checked={excludeFromAnalytics} 
+              onChange={e => setExcludeFromAnalytics(e.target.checked)}
+              className="w-4 h-4 accent-emerald-500 rounded border-border"
+            />
+            <label htmlFor="excludeFromAnalyticsAdd" className="text-xs font-semibold text-foreground cursor-pointer select-none">
+              Exclude from Analytics (Transfers / Credit Card Bills)
+            </label>
+          </div>
           <div className="flex gap-2 pt-1">
             <Btn variant="outline" className="flex-1 justify-center" onClick={() => setShowAddModal(false)}>Cancel</Btn>
             <Btn className="flex-1 justify-center" onClick={handleSaveAdd}><Check size={14} />Save Expense</Btn>
@@ -320,7 +388,31 @@ export default function ExpensesPage() {
               </select>
             </div>
           </div>
-          <Input label="Date" type="date" icon={Calendar} value={editExpenseDate} onChange={e => setEditExpenseDate(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Date" type="date" icon={Calendar} value={editExpenseDate} onChange={e => setEditExpenseDate(e.target.value)} />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Payment Method</label>
+              <select value={editCreditCardId} onChange={e => setEditCreditCardId(e.target.value)}
+                className="bg-input-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                <option value="">Cash / Bank Account</option>
+                {cards.map(card => (
+                  <option key={card.id} value={card.id}>💳 {card.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-1.5">
+            <input 
+              type="checkbox" 
+              id="excludeFromAnalyticsEdit"
+              checked={editExcludeFromAnalytics} 
+              onChange={e => setEditExcludeFromAnalytics(e.target.checked)}
+              className="w-4 h-4 accent-emerald-500 rounded border-border"
+            />
+            <label htmlFor="excludeFromAnalyticsEdit" className="text-xs font-semibold text-foreground cursor-pointer select-none">
+              Exclude from Analytics (Transfers / Credit Card Bills)
+            </label>
+          </div>
           <div className="flex gap-2 pt-1">
             <Btn variant="outline" className="flex-1 justify-center" onClick={() => setEditId(null)}>Cancel</Btn>
             <Btn className="flex-1 justify-center" onClick={handleSaveEdit}><Check size={14} />Update</Btn>

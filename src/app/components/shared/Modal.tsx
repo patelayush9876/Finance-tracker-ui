@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { Card } from "./Card";
 import { motion, AnimatePresence } from "motion/react";
 
-export function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+export function Modal({ open, onClose, title, children, size = "md" }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; size?: "md" | "lg" }) {
   return (
     <AnimatePresence>
       {open && (
@@ -24,7 +24,7 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 12 }}
             transition={{ type: "spring", duration: 0.28, bounce: 0.15 }}
-            className="relative z-10 w-full max-w-md mx-4"
+            className={`relative z-10 w-full mx-4 ${size === "md" ? "max-w-md" : "max-w-2xl"}`}
           >
             <Card className="p-6 shadow-2xl w-full">
               <div className="flex items-center justify-between mb-5">
