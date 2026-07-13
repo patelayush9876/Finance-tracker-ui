@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { TrendingUp, Landmark, Zap, Activity, ArrowUpRight, Plus, DollarSign, Calendar, Edit2, Trash2, Check } from "lucide-react";
+import { TrendingUp, Landmark, Zap, Activity, ArrowUpRight, Plus, DollarSign, Calendar, Edit2, Trash2, Check, Search } from "lucide-react";
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useFinanceStore } from "../../store/useFinanceStore";
 import { useDashboardStore } from "../../store/useDashboardStore";
@@ -24,8 +24,13 @@ interface Income {
 }
 
 export default function IncomePage() {
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filterCat, setFilterCat] = useState("All");
+  const [monthFilter, setMonthFilter] = useState("All");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const sentinelRef = React.useRef<HTMLDivElement>(null);
 
   // States for Add Modal
   const [title, setTitle] = useState("");
@@ -39,8 +44,101 @@ export default function IncomePage() {
   const [editCategoryId, setEditCategoryId] = useState("");
   const [editIncomeDate, setEditIncomeDate] = useState("");
 
-  const { incomes, incomeCategories, addIncome, updateIncome, deleteIncome } = useFinanceStore();
+  const { incomes, incomesPage, incomesTotalPages, fetchIncomes, incomeCategories, addIncome, updateIncome, deleteIncome, loading } = useFinanceStore();
   const { monthlyIncomeExpense } = useDashboardStore();
+
+  const getMonthOptions = () => {
+    const options = [{ label: "All Months", value: "All" }];
+    const date = new Date();
+    for (let i = 0; i < 12; i++) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const label = date.toLocaleString("default", { month: "long", year: "numeric" });
+      options.push({ label, value: `${y}-${m}` });
+      date.setMonth(date.getMonth() - 1);
+    }
+    return options;
+  };
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Load incomes from API based on query filters
+  useEffect(() => {
+    const matchedCategory = incomeCategories.find(c => c.name === filterCat);
+    const categoryId = matchedCategory ? matchedCategory.id : undefined;
+
+    let startDate: string | undefined;
+    let endDate: string | undefined;
+    if (monthFilter !== "All") {
+      const [year, month] = monthFilter.split("-");
+      startDate = new Date(Number(year), Number(month) - 1, 1).toISOString();
+      endDate = new Date(Number(year), Number(month), 0, 23, 59, 59, 999).toISOString();
+    }
+
+    fetchIncomes({
+      page: 1,
+      limit: 20,
+      search: debouncedSearch.trim() || undefined,
+      categoryId,
+      startDate,
+      endDate,
+    });
+  }, [debouncedSearch, filterCat, monthFilter, fetchIncomes, incomeCategories]);
+
+  const handleLoadMore = () => {
+    if (incomesPage < incomesTotalPages) {
+      const matchedCategory = incomeCategories.find(c => c.name === filterCat);
+      const categoryId = matchedCategory ? matchedCategory.id : undefined;
+
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+      if (monthFilter !== "All") {
+        const [year, month] = monthFilter.split("-");
+        startDate = new Date(Number(year), Number(month) - 1, 1).toISOString();
+        endDate = new Date(Number(year), Number(month), 0, 23, 59, 59, 999).toISOString();
+      }
+
+      fetchIncomes({
+        page: incomesPage + 1,
+        limit: 20,
+        search: debouncedSearch.trim() || undefined,
+        categoryId,
+        startDate,
+        endDate,
+      }, true); // true = append mode
+    }
+  };
+
+  // Infinite Scroll Trigger
+  useEffect(() => {
+    if (incomesPage >= incomesTotalPages || loading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [incomesPage, incomesTotalPages, loading, handleLoadMore]);
 
   const chartData = monthlyIncomeExpense && monthlyIncomeExpense.length > 0
     ? monthlyIncomeExpense.map(m => ({
@@ -191,6 +289,29 @@ export default function IncomePage() {
         </Card>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            placeholder="Search income…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full bg-card border border-border rounded-xl px-3 py-2.5 pl-9 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all"
+          />
+        </div>
+        <div className="flex gap-2">
+          <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
+            className="bg-card border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+            {getMonthOptions().map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+          <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
+            className="bg-card border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+            <option value="All">All Categories</option>
+            {incomeCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
+        </div>
+      </div>
+
       <Card className="overflow-hidden">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h3 className="font-bold text-foreground">Income Transactions <span className="text-muted-foreground font-normal text-sm ml-1">({incomes.length})</span></h3>
@@ -218,6 +339,11 @@ export default function IncomePage() {
           {incomes.length === 0 && (
             <div className="py-16 text-center text-xs text-muted-foreground">
               No incomes found
+            </div>
+          )}
+          {incomesPage < incomesTotalPages && (
+            <div ref={sentinelRef} className="p-4 border-t border-border flex justify-center bg-card text-xs text-muted-foreground font-semibold">
+              {loading ? "Loading older transactions..." : "Scroll down to load more"}
             </div>
           )}
         </div>

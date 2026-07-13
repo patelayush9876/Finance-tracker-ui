@@ -28,9 +28,12 @@ interface Expense {
 
 export default function ExpensesPage() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterCat, setFilterCat] = useState("All");
+  const [monthFilter, setMonthFilter] = useState("All");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const sentinelRef = React.useRef<HTMLDivElement>(null);
 
   // States for Add Modal
   const [title, setTitle] = useState("");
@@ -48,7 +51,7 @@ export default function ExpensesPage() {
   const [editCreditCardId, setEditCreditCardId] = useState("");
   const [editExcludeFromAnalytics, setEditExcludeFromAnalytics] = useState(false);
 
-  const { expenses, expenseCategories, addExpense, updateExpense, deleteExpense } = useFinanceStore();
+  const { expenses, expensesPage, expensesTotalPages, fetchExpenses, expenseCategories, addExpense, updateExpense, deleteExpense, loading } = useFinanceStore();
   const { monthlyIncomeExpense } = useDashboardStore();
   const { cards } = useCreditCardStore();
   const [timescale, setTimescale] = useState<"3M" | "6M" | "YTD">("6M");
@@ -74,15 +77,100 @@ export default function ExpensesPage() {
 
   const cats = ["All", ...expenseCategories.map(c => c.name)];
 
-  const filtered = expenses.filter(t => {
-    const matchesSearch = t.title.toLowerCase().includes(search.toLowerCase()) || 
-                          (t.description && t.description.toLowerCase().includes(search.toLowerCase())) ||
-                          (t.category && t.category.name.toLowerCase().includes(search.toLowerCase()));
-    
-    const matchesCategory = filterCat === "All" || (t.category && t.category.name === filterCat);
-    return matchesSearch && matchesCategory;
-  });
+  const getMonthOptions = () => {
+    const options = [{ label: "All Months", value: "All" }];
+    const date = new Date();
+    for (let i = 0; i < 12; i++) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const label = date.toLocaleString("default", { month: "long", year: "numeric" });
+      options.push({ label, value: `${y}-${m}` });
+      date.setMonth(date.getMonth() - 1);
+    }
+    return options;
+  };
 
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Load expenses from API based on active query filters
+  useEffect(() => {
+    const matchedCategory = expenseCategories.find(c => c.name === filterCat);
+    const categoryId = matchedCategory ? matchedCategory.id : undefined;
+
+    let startDate: string | undefined;
+    let endDate: string | undefined;
+    if (monthFilter !== "All") {
+      const [year, month] = monthFilter.split("-");
+      startDate = new Date(Number(year), Number(month) - 1, 1).toISOString();
+      endDate = new Date(Number(year), Number(month), 0, 23, 59, 59, 999).toISOString();
+    }
+
+    fetchExpenses({
+      page: 1,
+      limit: 20,
+      search: debouncedSearch.trim() || undefined,
+      categoryId,
+      startDate,
+      endDate,
+    });
+  }, [debouncedSearch, filterCat, monthFilter, fetchExpenses, expenseCategories]);
+
+  const handleLoadMore = () => {
+    if (expensesPage < expensesTotalPages) {
+      const matchedCategory = expenseCategories.find(c => c.name === filterCat);
+      const categoryId = matchedCategory ? matchedCategory.id : undefined;
+
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+      if (monthFilter !== "All") {
+        const [year, month] = monthFilter.split("-");
+        startDate = new Date(Number(year), Number(month) - 1, 1).toISOString();
+        endDate = new Date(Number(year), Number(month), 0, 23, 59, 59, 999).toISOString();
+      }
+
+      fetchExpenses({
+        page: expensesPage + 1,
+        limit: 20,
+        search: debouncedSearch.trim() || undefined,
+        categoryId,
+        startDate,
+        endDate,
+      }, true); // true = append mode
+    }
+  };
+
+  // Infinite Scroll Trigger
+  useEffect(() => {
+    if (expensesPage >= expensesTotalPages || loading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [expensesPage, expensesTotalPages, loading, handleLoadMore]);
+
+  const filtered = expenses;
   const totalExpenses = filtered.reduce((s, t) => s + t.amount, 0);
 
   useEffect(() => {
@@ -185,6 +273,10 @@ export default function ExpensesPage() {
           />
         </div>
         <div className="flex gap-2">
+          <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
+            className="bg-card border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+            {getMonthOptions().map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
           <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
             className="bg-card border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
             {cats.map(c => <option key={c}>{c}</option>)}
@@ -325,6 +417,11 @@ export default function ExpensesPage() {
             <div className="py-16 text-center">
               <CreditCard size={32} className="text-muted-foreground mx-auto mb-3" />
               <p className="text-muted-foreground text-sm">No expenses found</p>
+            </div>
+          )}
+          {expensesPage < expensesTotalPages && (
+            <div ref={sentinelRef} className="p-4 border-t border-border flex justify-center bg-card text-xs text-muted-foreground font-semibold">
+              {loading ? "Loading older transactions..." : "Scroll down to load more"}
             </div>
           )}
         </div>

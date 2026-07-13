@@ -25,11 +25,14 @@ const CARD_GRADIENTS = [
 
 export default function CreditCardsPage() {
   const { cards, loading, addCard, updateCard, deleteCard, payBill } = useCreditCardStore();
-  const { expenses } = useFinanceStore();
+  const { expenses, expensesPage, expensesTotalPages, fetchExpenses, loading: financeLoading } = useFinanceStore();
   const { user } = useAuthStore();
   const currencySymbol = getCurrencySymbol();
+  const cardSentinelRef = React.useRef<HTMLDivElement>(null);
 
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const selectedCardIdState = useState<string | null>(null);
+  const selectedCardId = selectedCardIdState[0];
+  const setSelectedCardId = selectedCardIdState[1];
   
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -59,11 +62,58 @@ export default function CreditCardsPage() {
     }
   }, [cards, selectedCardId]);
 
+  const [cardPage, setCardPage] = useState(1);
+
+  // Fetch card specific expenses when activeCard changes
+  React.useEffect(() => {
+    if (activeCard) {
+      setCardPage(1);
+      fetchExpenses({
+        creditCardId: activeCard.id,
+        page: 1,
+        limit: 15,
+      });
+    }
+  }, [activeCard, fetchExpenses]);
+
+  const handleLoadMoreCardExpenses = React.useCallback(() => {
+    if (activeCard && expensesPage < expensesTotalPages && !financeLoading) {
+      fetchExpenses({
+        creditCardId: activeCard.id,
+        page: cardPage + 1,
+        limit: 15,
+      }, true);
+      setCardPage(cardPage + 1);
+    }
+  }, [activeCard, expensesPage, expensesTotalPages, financeLoading, fetchExpenses, cardPage]);
+
+  // Card Transactions Scroll Observer
+  React.useEffect(() => {
+    if (expensesPage >= expensesTotalPages || financeLoading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          handleLoadMoreCardExpenses();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentSentinel = cardSentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [expensesPage, expensesTotalPages, financeLoading, handleLoadMoreCardExpenses]);
+
   // Expenses for the selected card
-  const cardExpenses = React.useMemo(() => {
-    if (!activeCard) return [];
-    return expenses.filter(exp => exp.creditCardId === activeCard.id);
-  }, [expenses, activeCard]);
+  const cardExpenses = expenses.filter(exp => exp.creditCardId === activeCard?.id);
 
   const handleOpenAdd = () => {
     setName("");
@@ -344,21 +394,28 @@ export default function CreditCardsPage() {
 
               <div className="flex-1 overflow-y-auto space-y-3 pr-1 -mr-1 scrollbar-thin scrollbar-thumb-border">
                 {cardExpenses.length > 0 ? (
-                  cardExpenses.map(exp => (
-                    <div key={exp.id} className="flex justify-between items-center p-3 rounded-xl bg-muted/30 border border-border/40 hover:bg-muted/50 transition-colors">
-                      <div className="min-w-0 pr-2">
-                        <p className="text-xs font-semibold text-foreground truncate">{exp.title}</p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className="text-[10px] text-muted-foreground">{fmtDate(exp.expenseDate)}</span>
-                          <span className="w-1 h-1 rounded-full bg-border" />
-                          <span className="text-[9px] font-medium text-emerald-500">{exp.category?.name || "Uncategorized"}</span>
+                  <>
+                    {cardExpenses.map(exp => (
+                      <div key={exp.id} className="flex justify-between items-center p-3 rounded-xl bg-muted/30 border border-border/40 hover:bg-muted/50 transition-colors">
+                        <div className="min-w-0 pr-2">
+                          <p className="text-xs font-semibold text-foreground truncate">{exp.title}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[10px] text-muted-foreground">{fmtDate(exp.expenseDate)}</span>
+                            <span className="w-1 h-1 rounded-full bg-border" />
+                            <span className="text-[9px] font-medium text-emerald-500">{exp.category?.name || "Uncategorized"}</span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-xs font-bold text-red-400 font-mono">-{fmt(exp.amount)}</span>
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-bold text-red-400 font-mono">-{fmt(exp.amount)}</span>
+                    ))}
+                    {expensesPage < expensesTotalPages && (
+                      <div ref={cardSentinelRef} className="py-2 text-center text-[10px] text-muted-foreground font-semibold">
+                        {financeLoading ? "Loading more..." : "Scroll for more"}
                       </div>
-                    </div>
-                  ))
+                    )}
+                  </>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-center py-10 opacity-70">
                     <CardIcon size={24} className="text-muted-foreground mb-2" />

@@ -85,6 +85,10 @@ interface FinanceState {
   incomesLimit: number;
   incomesTotalPages: number;
   investments: Investment[];
+  investmentsTotal: number;
+  investmentsPage: number;
+  investmentsLimit: number;
+  investmentsTotalPages: number;
   goals: Goal[];
   expenseCategories: Category[];
   incomeCategories: Category[];
@@ -93,17 +97,17 @@ interface FinanceState {
   loading: boolean;
   error: string | null;
 
-  fetchExpenses: (query?: any) => Promise<any>;
+  fetchExpenses: (query?: any, append?: boolean) => Promise<any>;
   addExpense: (data: any) => Promise<Expense>;
   updateExpense: (id: string, data: any) => Promise<Expense>;
   deleteExpense: (id: string) => Promise<void>;
 
-  fetchIncomes: (query?: any) => Promise<any>;
+  fetchIncomes: (query?: any, append?: boolean) => Promise<any>;
   addIncome: (data: any) => Promise<Income>;
   updateIncome: (id: string, data: any) => Promise<Income>;
   deleteIncome: (id: string) => Promise<void>;
 
-  fetchInvestments: () => Promise<Investment[]>;
+  fetchInvestments: (query?: any, append?: boolean) => Promise<any>;
   addInvestment: (data: any) => Promise<Investment>;
   updateInvestment: (id: string, data: any) => Promise<Investment>;
   deleteInvestment: (id: string) => Promise<void>;
@@ -155,14 +159,18 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   expenses: [],
   expensesTotal: 0,
   expensesPage: 1,
-  expensesLimit: 10000, // retrieve all for local UI listing unless paginated
+  expensesLimit: 20, // default limit to 20 for standard paginated operations
   expensesTotalPages: 1,
   incomes: [],
   incomesTotal: 0,
   incomesPage: 1,
-  incomesLimit: 10000,
+  incomesLimit: 20,
   incomesTotalPages: 1,
   investments: [],
+  investmentsTotal: 0,
+  investmentsPage: 1,
+  investmentsLimit: 20,
+  investmentsTotalPages: 1,
   goals: [],
   expenseCategories: [],
   incomeCategories: [],
@@ -171,15 +179,16 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   loading: false,
   error: null,
 
-  fetchExpenses: async (query) => {
+  fetchExpenses: async (query, append = false) => {
     set({ loading: true, error: null });
     try {
       const response: any = await client.get('/expenses', { params: query });
+      const newItems = response.items.map((item: any) => ({
+        ...item,
+        amount: Number(item.amount),
+      }));
       set({
-        expenses: response.items.map((item: any) => ({
-          ...item,
-          amount: Number(item.amount),
-        })),
+        expenses: append ? [...get().expenses, ...newItems] : newItems,
         expensesTotal: response.total,
         expensesPage: response.page,
         expensesLimit: response.limit,
@@ -242,15 +251,16 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
   },
 
-  fetchIncomes: async (query) => {
+  fetchIncomes: async (query, append = false) => {
     set({ loading: true, error: null });
     try {
       const response: any = await client.get('/incomes', { params: query });
+      const newItems = response.items.map((item: any) => ({
+        ...item,
+        amount: Number(item.amount),
+      }));
       set({
-        incomes: response.items.map((item: any) => ({
-          ...item,
-          amount: Number(item.amount),
-        })),
+        incomes: append ? [...get().incomes, ...newItems] : newItems,
         incomesTotal: response.total,
         incomesPage: response.page,
         incomesLimit: response.limit,
@@ -313,12 +323,12 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
   },
 
-  fetchInvestments: async () => {
+  fetchInvestments: async (query, append = false) => {
     set({ loading: true, error: null });
     try {
-      const response: any = await client.get('/investments', { params: { limit: 100 } });
+      const response: any = await client.get('/investments', { params: query });
       const items = response.items || [];
-      const investments = items.map((i: any) => {
+      const newItems = items.map((i: any) => {
         const amountInvested = Number(i.amountInvested);
         const currentValue = Number(i.currentValue);
         const gl = currentValue - amountInvested;
@@ -331,16 +341,25 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           glp,
         };
       });
-      
+
+      const updatedInvestments = append ? [...get().investments, ...newItems] : newItems;
+
       // Calculate allocation percentages
-      const totalVal = investments.reduce((sum: number, inv: any) => sum + inv.currentValue, 0);
-      const investmentsWithAlloc = investments.map((inv: any) => ({
+      const totalVal = updatedInvestments.reduce((sum: number, inv: any) => sum + inv.currentValue, 0);
+      const investmentsWithAlloc = updatedInvestments.map((inv: any) => ({
         ...inv,
         alloc: totalVal > 0 ? Math.round((inv.currentValue / totalVal) * 100) : 0,
       }));
 
-      set({ investments: investmentsWithAlloc, loading: false });
-      return investmentsWithAlloc;
+      set({
+        investments: investmentsWithAlloc,
+        investmentsTotal: response.total,
+        investmentsPage: response.page,
+        investmentsLimit: response.limit,
+        investmentsTotalPages: response.totalPages,
+        loading: false,
+      });
+      return response;
     } catch (err: any) {
       set({ error: err.message, loading: false });
       return [];

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { Plus, Briefcase, Wallet, TrendingUp, Activity, Calendar, DollarSign, Edit2, Trash2, Check } from "lucide-react";
+import { Plus, Briefcase, Wallet, TrendingUp, Activity, Calendar, DollarSign, Edit2, Trash2, Check, Search } from "lucide-react";
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useFinanceStore } from "../../store/useFinanceStore";
 import { toast } from "sonner";
@@ -25,12 +25,26 @@ const typeMapToUI: { [key: string]: string } = {
   NPS: "NPS",
 };
 
+const uiToTypeMap: { [key: string]: string | undefined } = {
+  "Mutual Fund": "MUTUAL_FUND",
+  "Stock": "STOCKS",
+  "Fixed Deposit": "FIXED_DEPOSIT",
+  "Gold": "GOLD",
+  "Crypto": "CRYPTO",
+  "PPF": "PPF",
+  "NPS": "NPS",
+};
+
 export default function InvestmentsPage() {
   const [activeType, setActiveType] = useState("All");
   const types = ["All", "Mutual Fund", "Stock", "Fixed Deposit", "Gold", "Crypto", "PPF", "NPS"];
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const sentinelRef = React.useRef<HTMLDivElement>(null);
 
   // Add states
   const [name, setName] = useState("");
@@ -56,8 +70,64 @@ export default function InvestmentsPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  const { investments, addInvestment, updateInvestment, deleteInvestment, syncInvestments } = useFinanceStore();
+  const { investments, investmentsPage, investmentsTotalPages, fetchInvestments, addInvestment, updateInvestment, deleteInvestment, syncInvestments, loading } = useFinanceStore();
   const { netWorthHistory, investmentPerformance } = useDashboardStore();
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Load investments from API based on query filters
+  useEffect(() => {
+    const targetType = uiToTypeMap[activeType];
+    fetchInvestments({
+      page: 1,
+      limit: 20,
+      search: debouncedSearch.trim() || undefined,
+      type: targetType,
+    });
+  }, [debouncedSearch, activeType, fetchInvestments]);
+
+  const handleLoadMore = () => {
+    if (investmentsPage < investmentsTotalPages) {
+      const targetType = uiToTypeMap[activeType];
+      fetchInvestments({
+        page: investmentsPage + 1,
+        limit: 20,
+        search: debouncedSearch.trim() || undefined,
+        type: targetType,
+      }, true); // true = append mode
+    }
+  };
+
+  // Infinite Scroll Trigger
+  useEffect(() => {
+    if (investmentsPage >= investmentsTotalPages || loading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [investmentsPage, investmentsTotalPages, loading, handleLoadMore]);
 
   const totalValue = investments.reduce((s, i) => s + i.currentValue, 0);
   const totalInvested = investments.reduce((s, i) => s + i.amountInvested, 0);
@@ -79,9 +149,7 @@ export default function InvestmentsPage() {
     color: COLORS[i % COLORS.length]
   }));
 
-  const filtered = activeType === "All"
-    ? displayInvestments
-    : displayInvestments.filter(i => (typeMapToUI[i.type] || i.type) === activeType);
+  const filtered = displayInvestments;
 
   // Group by asset type for allocation chart
   const investmentsByType = investments.reduce((acc: any, inv) => {
@@ -265,26 +333,39 @@ export default function InvestmentsPage() {
         </Card>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1 relative">
-        {types.map(t => {
-          const active = activeType === t;
-          return (
-            <button key={t} onClick={() => setActiveType(t)}
-              className={cn("px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all shrink-0 relative",
-                active ? "text-white font-semibold" : "bg-card border border-border text-muted-foreground hover:text-foreground")}
-            >
-              {active && (
-                <motion.div
-                  layoutId="investmentsTypeBG"
-                  className="absolute inset-0 bg-emerald-500 rounded-xl shadow-sm"
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                />
-              )}
-              <span className="relative z-10">{t}</span>
-            </button>
-          );
-        })}
+      {/* Filter and Search Layout */}
+      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+        {/* Filter tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-1 relative w-full sm:w-auto">
+          {types.map(t => {
+            const active = activeType === t;
+            return (
+              <button key={t} onClick={() => setActiveType(t)}
+                className={cn("px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all shrink-0 relative",
+                  active ? "text-white font-semibold" : "bg-card border border-border text-muted-foreground hover:text-foreground")}
+              >
+                {active && (
+                  <motion.div
+                    layoutId="investmentsTypeBG"
+                    className="absolute inset-0 bg-emerald-500 rounded-xl shadow-sm"
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10">{t}</span>
+              </button>
+            );
+          })}
+        </div>
+        {/* Search */}
+        <div className="relative w-full sm:w-64">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            placeholder="Search investments…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full bg-card border border-border rounded-xl px-3 py-2 pl-9 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all"
+          />
+        </div>
       </div>
 
       <Card className="overflow-hidden">
@@ -343,6 +424,11 @@ export default function InvestmentsPage() {
             <div className="py-16 text-center">
               <Briefcase size={32} className="text-muted-foreground mx-auto mb-3" />
               <p className="text-muted-foreground text-sm">No investments found</p>
+            </div>
+          )}
+          {investmentsPage < investmentsTotalPages && (
+            <div ref={sentinelRef} className="p-4 border-t border-border flex justify-center bg-card text-xs text-muted-foreground font-semibold">
+              {loading ? "Loading more investments..." : "Scroll down to load more"}
             </div>
           )}
         </div>
