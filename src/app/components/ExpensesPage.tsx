@@ -51,7 +51,7 @@ export default function ExpensesPage() {
   const [editCreditCardId, setEditCreditCardId] = useState("");
   const [editExcludeFromAnalytics, setEditExcludeFromAnalytics] = useState(false);
 
-  const { expenses, expensesPage, expensesTotalPages, fetchExpenses, expenseCategories, addExpense, updateExpense, deleteExpense, loading } = useFinanceStore();
+  const { expenses, expensesPage, expensesTotalPages, fetchExpenses, expenseCategories, addExpense, updateExpense, deleteExpense, expensesTotal, expensesTotalAmount, loading } = useFinanceStore();
   const { monthlyIncomeExpense } = useDashboardStore();
   const { cards } = useCreditCardStore();
   const [timescale, setTimescale] = useState<"3M" | "6M" | "YTD">("6M");
@@ -171,7 +171,7 @@ export default function ExpensesPage() {
   }, [expensesPage, expensesTotalPages, loading, handleLoadMore]);
 
   const filtered = expenses;
-  const totalExpenses = filtered.reduce((s, t) => s + t.amount, 0);
+  const totalExpenses = expensesTotalAmount;
 
   useEffect(() => {
     if (expenseCategories.length > 0 && !categoryId) {
@@ -293,7 +293,7 @@ export default function ExpensesPage() {
         </Card>
         <Card className="p-4 text-center">
           <p className="text-xs text-muted-foreground mb-1">Transactions</p>
-          <p className="text-xl font-bold text-foreground">{filtered.length}</p>
+          <p className="text-xl font-bold text-foreground">{expensesTotal}</p>
         </Card>
         <Card className="p-4 text-center">
           <p className="text-xs text-muted-foreground mb-1">Avg per day</p>

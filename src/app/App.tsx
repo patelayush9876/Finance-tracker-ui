@@ -5,8 +5,9 @@ import { useDashboardStore } from "../store/useDashboardStore";
 import { Sun, Moon } from "lucide-react";
 import { cn } from "./components/shared/utils";
 import { Page } from "./components/shared/types";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
+import client from "../api/client";
 
 
 // Page Components
@@ -55,6 +56,18 @@ export default function App() {
 
   // Check auth session on boot
   useEffect(() => {
+    (client as any).onSessionExpired = (error: any) => {
+      const wasAuthenticated = useAuthStore.getState().isAuthenticated;
+      const hasRealTokenError = error?.response?.data?.message && error.response.data.message !== "Refresh token is missing";
+
+      if (wasAuthenticated || hasRealTokenError) {
+        toast.error("Session expired, please login again");
+      }
+
+      useAuthStore.setState({ user: null, settings: null, isAuthenticated: false });
+      setPage("auth");
+    };
+
     getMe().then((usr) => {
       if (usr) {
         setPage("dashboard");
@@ -63,6 +76,10 @@ export default function App() {
         }
       }
     });
+
+    return () => {
+      (client as any).onSessionExpired = undefined;
+    };
   }, [getMe]);
 
   // Fetch all user finance data once authenticated

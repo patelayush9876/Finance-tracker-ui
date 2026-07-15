@@ -44,7 +44,7 @@ export default function IncomePage() {
   const [editCategoryId, setEditCategoryId] = useState("");
   const [editIncomeDate, setEditIncomeDate] = useState("");
 
-  const { incomes, incomesPage, incomesTotalPages, fetchIncomes, incomeCategories, addIncome, updateIncome, deleteIncome, loading } = useFinanceStore();
+  const { incomes, incomesPage, incomesTotalPages, fetchIncomes, incomeCategories, addIncome, updateIncome, deleteIncome, incomesTotalAmount, incomesByCategory, loading } = useFinanceStore();
   const { monthlyIncomeExpense } = useDashboardStore();
 
   const getMonthOptions = () => {
@@ -147,13 +147,7 @@ export default function IncomePage() {
       }))
     : [];
 
-  const totalIncome = incomes.reduce((s, t) => s + t.amount, 0);
-
-  const incomesByCategory = incomes.reduce((acc: any, inc) => {
-    const name = inc.category?.name || "Other";
-    acc[name] = (acc[name] || 0) + inc.amount;
-    return acc;
-  }, {});
+  const totalIncome = incomesTotalAmount;
 
   const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"];
   const displayIncomeCats = Object.keys(incomesByCategory).map((name, i) => ({

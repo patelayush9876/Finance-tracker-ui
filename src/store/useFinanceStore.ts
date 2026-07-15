@@ -76,16 +76,22 @@ interface ActivityLog {
 interface FinanceState {
   expenses: Expense[];
   expensesTotal: number;
+  expensesTotalAmount: number;
   expensesPage: number;
   expensesLimit: number;
   expensesTotalPages: number;
   incomes: Income[];
   incomesTotal: number;
+  incomesTotalAmount: number;
+  incomesByCategory: Record<string, number>;
   incomesPage: number;
   incomesLimit: number;
   incomesTotalPages: number;
   investments: Investment[];
   investmentsTotal: number;
+  investmentsTotalCurrentValue: number;
+  investmentsTotalAmountInvested: number;
+  investmentsByType: Record<string, number>;
   investmentsPage: number;
   investmentsLimit: number;
   investmentsTotalPages: number;
@@ -158,16 +164,22 @@ const triggerDashboardRefresh = () => {
 export const useFinanceStore = create<FinanceState>((set, get) => ({
   expenses: [],
   expensesTotal: 0,
+  expensesTotalAmount: 0,
   expensesPage: 1,
   expensesLimit: 20, // default limit to 20 for standard paginated operations
   expensesTotalPages: 1,
   incomes: [],
   incomesTotal: 0,
+  incomesTotalAmount: 0,
+  incomesByCategory: {},
   incomesPage: 1,
   incomesLimit: 20,
   incomesTotalPages: 1,
   investments: [],
   investmentsTotal: 0,
+  investmentsTotalCurrentValue: 0,
+  investmentsTotalAmountInvested: 0,
+  investmentsByType: {},
   investmentsPage: 1,
   investmentsLimit: 20,
   investmentsTotalPages: 1,
@@ -190,6 +202,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       set({
         expenses: append ? [...get().expenses, ...newItems] : newItems,
         expensesTotal: response.total,
+        expensesTotalAmount: Number(response.totalAmount || 0),
         expensesPage: response.page,
         expensesLimit: response.limit,
         expensesTotalPages: response.totalPages,
@@ -262,6 +275,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       set({
         incomes: append ? [...get().incomes, ...newItems] : newItems,
         incomesTotal: response.total,
+        incomesTotalAmount: Number(response.totalAmount || 0),
+        incomesByCategory: response.byCategory || {},
         incomesPage: response.page,
         incomesLimit: response.limit,
         incomesTotalPages: response.totalPages,
@@ -342,18 +357,21 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         };
       });
 
-      const updatedInvestments = append ? [...get().investments, ...newItems] : newItems;
-
-      // Calculate allocation percentages
-      const totalVal = updatedInvestments.reduce((sum: number, inv: any) => sum + inv.currentValue, 0);
-      const investmentsWithAlloc = updatedInvestments.map((inv: any) => ({
+      // Calculate allocation percentages using global total current value
+      const totalVal = Number(response.totalCurrentValue || 0);
+      const investmentsWithAlloc = newItems.map((inv: any) => ({
         ...inv,
         alloc: totalVal > 0 ? Math.round((inv.currentValue / totalVal) * 100) : 0,
       }));
 
+      const updatedInvestments = append ? [...get().investments, ...investmentsWithAlloc] : investmentsWithAlloc;
+
       set({
-        investments: investmentsWithAlloc,
+        investments: updatedInvestments,
         investmentsTotal: response.total,
+        investmentsTotalCurrentValue: totalVal,
+        investmentsTotalAmountInvested: Number(response.totalAmountInvested || 0),
+        investmentsByType: response.byType || {},
         investmentsPage: response.page,
         investmentsLimit: response.limit,
         investmentsTotalPages: response.totalPages,

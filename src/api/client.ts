@@ -63,6 +63,9 @@ client.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError);
         isRefreshing = false;
+        if (typeof (client as any).onSessionExpired === 'function') {
+          (client as any).onSessionExpired(refreshError);
+        }
         return Promise.reject(refreshError);
       }
     }

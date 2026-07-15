@@ -70,7 +70,20 @@ export default function InvestmentsPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  const { investments, investmentsPage, investmentsTotalPages, fetchInvestments, addInvestment, updateInvestment, deleteInvestment, syncInvestments, loading } = useFinanceStore();
+  const { 
+    investments, 
+    investmentsPage, 
+    investmentsTotalPages, 
+    fetchInvestments, 
+    addInvestment, 
+    updateInvestment, 
+    deleteInvestment, 
+    syncInvestments, 
+    investmentsTotalCurrentValue,
+    investmentsTotalAmountInvested,
+    investmentsByType: storeInvestmentsByType,
+    loading 
+  } = useFinanceStore();
   const { netWorthHistory, investmentPerformance } = useDashboardStore();
 
   // Debounce search input
@@ -129,8 +142,8 @@ export default function InvestmentsPage() {
     };
   }, [investmentsPage, investmentsTotalPages, loading, handleLoadMore]);
 
-  const totalValue = investments.reduce((s, i) => s + i.currentValue, 0);
-  const totalInvested = investments.reduce((s, i) => s + i.amountInvested, 0);
+  const totalValue = investmentsTotalCurrentValue;
+  const totalInvested = investmentsTotalAmountInvested;
   const totalGL = totalValue - totalInvested;
   const totalGLPercentage = totalInvested > 0 ? (totalGL / totalInvested) * 100 : 0;
 
@@ -152,11 +165,14 @@ export default function InvestmentsPage() {
   const filtered = displayInvestments;
 
   // Group by asset type for allocation chart
-  const investmentsByType = investments.reduce((acc: any, inv) => {
-    const typeLabel = typeMapToUI[inv.type] || inv.type;
-    acc[typeLabel] = (acc[typeLabel] || 0) + inv.currentValue;
-    return acc;
-  }, {});
+  const investmentsByType = React.useMemo(() => {
+    const res: Record<string, number> = {};
+    Object.entries(storeInvestmentsByType || {}).forEach(([type, amount]) => {
+      const typeLabel = typeMapToUI[type] || type;
+      res[typeLabel] = (res[typeLabel] || 0) + amount;
+    });
+    return res;
+  }, [storeInvestmentsByType]);
 
   const assetAllocation = Object.keys(investmentsByType).map((typeLabel, i) => ({
     name: typeLabel,
